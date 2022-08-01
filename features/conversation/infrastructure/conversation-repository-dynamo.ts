@@ -10,7 +10,7 @@ export class ConversationRepositoryDynamo implements ConversationRepository
 
   constructor(region: string) {
     const client = new DynamoDBClient({region: region})
-    this.dynamoDB = DynamoDBDocumentClient.from(client, {marshallOptions: {convertEmptyValues: true}})
+    this.dynamoDB = DynamoDBDocumentClient.from(client, {marshallOptions: {convertEmptyValues: true, convertClassInstanceToMap:true}})
   }
 
   async save(conversation: Conversation)

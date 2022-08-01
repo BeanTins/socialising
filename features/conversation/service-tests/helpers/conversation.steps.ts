@@ -9,7 +9,7 @@ import { ConversationsAccessor } from "./conversations-accessor"
 import { EventListenerClient } from "./event-listener-client"
 import { ValidateConnectionsRequestListenerClient } from "./validate-connections-request-listener-client"
 import { ValidateConnectionsResponseFakeClient } from "./validate-connections-response-fake-client"
-import { ConversationActivated } from "../../domain/events"
+import { ConversationActivated,ConversationCreated } from "../../domain/events"
 
 const AWS_REGION = "us-east-1"
 
@@ -170,16 +170,15 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
 
     await expectValidateConnectionsRequest(conversationId)
 
-    await expectPublishedEvent(conversationId)
+    await expectPublishedCreatedEvent(conversationId)
   })
 
   then(/the conversation is activated/, async () => {
 
     await conversations.waitForActivation(conversationId)
 
-    await expectPublishedEvent(conversationId)
+    await expectPublishedActivatedEvent(conversationId)
   })
-
 }
 
 async function expectValidateConnectionsRequest(conversationId: string) {
@@ -189,7 +188,15 @@ async function expectValidateConnectionsRequest(conversationId: string) {
   expect(request.requestedConnectionMemberIds).toEqual([secondParticipant.memberId])
 }
 
-async function expectPublishedEvent(conversationId: string) {
+async function expectPublishedCreatedEvent(conversationId: string) {
+  const event = await eventListener.waitForEventType("ConversationCreated")
+
+  const eventData: ConversationCreated = <ConversationCreated>event!.data
+
+  expect(eventData.id).toBe(conversationId)
+}
+
+async function expectPublishedActivatedEvent(conversationId: string) {
   const event = await eventListener.waitForEventType("ConversationActivated")
 
   const eventData: ConversationActivated = <ConversationActivated>event!.data
