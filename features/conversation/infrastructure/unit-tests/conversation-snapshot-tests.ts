@@ -55,6 +55,34 @@ test("conversation to snapshot with null name", async() => {
   expect(snapshot.name).toBe("")
 })
 
+test("raw data to snapshot", async() => {
+  
+  const snapshot = ConversationSnapshot.createFromRawData({
+    id: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
+    name: "test",
+    initiatingMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
+    participantIds: new Set(["49070739-630c-2223-c8a5-2e6c9270fdb2", "79070739-630c-4423-c8a5-2e6c9270fdb2"]),
+    adminIds: new Set(["49070739-630c-2223-c8a5-2e6c9270fdb2"]),
+    state: "Created"}
+  )
+
+  expect(snapshot.id).toBe("09040739-830c-49d3-b8a5-1e6c9270fdb2")
+  expect(snapshot.name).toBe("test")
+  expect(snapshot.initiatingMemberId).toBe("49070739-630c-2223-c8a5-2e6c9270fdb2")
+  expect(snapshot.participantIds).toEqual(new Set(["49070739-630c-2223-c8a5-2e6c9270fdb2", "79070739-630c-4423-c8a5-2e6c9270fdb2"]))
+  expect(snapshot.adminIds).toEqual(new Set(["49070739-630c-2223-c8a5-2e6c9270fdb2"]))
+  expect(snapshot.state).toBe("Created")
+})
+
+test("raw data admin ids null to empty", async() => {
+  
+  const snapshot = ConversationSnapshot.createFromRawData({
+    adminIds: null}
+  )
+
+  expect(snapshot.adminIds).toEqual(new Set([]))
+})
+
 test("snapshot has identical set of properties to conversation", async() => {
   
   const conversation = Conversation.create("1234", new Set(["1234", "4321"]), "knitting club", new Set(["1234"]))

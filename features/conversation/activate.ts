@@ -4,6 +4,7 @@ import logger from "./infrastructure/lambda-logger"
 import { EventDispatcher } from "./infrastructure/event-dispatcher"
 import { ConversationRepositoryDynamo} from "./infrastructure/conversation-repository-dynamo"
 import { ConversationRepository } from "./domain/conversation-repository"
+import { Logger } from "winston"
 
 export const lambdaHandler = async (event: SQSEvent, context: Context): Promise<any> => {
   
@@ -13,27 +14,20 @@ export const lambdaHandler = async (event: SQSEvent, context: Context): Promise<
 
     if (command != undefined)
     {
-      if (command.validated)
-      {
-        const commandHandler = new CreateCommandHandler()
-      
-        await commandHandler.handle(command)
+      const commandHandler = new ActivateCommandHandler()
     
-        await postActivatedEvent(command)
-      }
-      else
-      {
-        throw new InvalidConversation(command.conversationId)
-      }
+      await commandHandler.handle(command)
+  
+      await postActivatedEvent(command)
     }
   }
   catch(error)
   {
-    logger.error("Failed to publish conversation started event - " + error)
+    logger.error("Failed to  conversation activated event - " + error)
   }
 }
 
-export class CreateCommandHandler {
+export class ActivateCommandHandler {
 
   private conversationRepository: ConversationRepository
 
@@ -57,10 +51,13 @@ export class CreateCommandHandler {
       if (command.validated)
       {
         conversation.activate()
+        await this.conversationRepository.save(conversation)
         validated = true
       }
-
-      await this.conversationRepository.save(conversation)
+      else
+      {
+         throw new InvalidConversation(command.conversationId)
+      }
     }
     catch(error)
     {
@@ -108,11 +105,6 @@ export class InvalidConversation extends Error
     super("Conversation " + conversationId + " is invalid")
   }
 }
-
-
-
-
-
 
 async function postActivatedEvent(command: ActivateCommand) {
   const eventDispatcher = new EventDispatcher(process.env.AWS_REGION!)

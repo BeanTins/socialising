@@ -92,6 +92,7 @@ export class SocialisingStage extends Stage implements Stage{
       functionEnvironment: {ConversationsTableName: this.conversationsTable.name},
       functionSourceLocation: path.join(__dirname, "../features/conversation/create.ts"),
       field: conversationCreateGraphQLField})
+    this.conversationsTable.grantAccessTo(createCommandLambda.grantPrincipal)
 
     this.validateConnectionsRequestPolicy = this.createStack(ValidateConnectionsRequestPolicy, {
       conversationsTable: this.conversationsTable.conversations,
@@ -106,9 +107,9 @@ export class SocialisingStage extends Stage implements Stage{
       eventBusArn: this.eventBus.Arn,
       responseQueueArn: props.validateConnectionsResponseQueueArn
      })
+    this.conversationsTable.grantAccessTo(this.activateCommand.lambda.grantPrincipal)
   
     this.conversationGraphQL.addSubscription()
-    this.conversationsTable.grantAccessTo(createCommandLambda.grantPrincipal)
   }
 
 }

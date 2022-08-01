@@ -113,6 +113,7 @@ export class EventListenerClient {
       {
         response = await this.sqsClient.send(command)
   
+        logger.verbose("event listener clear response - " + JSON.stringify(response))
         if (response.Messages != undefined && response.Messages.length > 0)
         {
           for (const message of response.Messages)

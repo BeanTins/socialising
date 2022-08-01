@@ -84,6 +84,21 @@ test("conversation activate fails if conversation is invalid", async () => {
   expect(loggerErrorMock).toBeCalledWith("conversation activate failed for command: {\"conversationId\":\"1234\",\"validated\":true} with Error: Unknown conversation 1234 received")
 })
 
+test("conversation activate fails if validation fails", async () => {
+
+  dynamoMock.on(GetCommand).resolves({Item: {
+    id: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
+    name: "",
+    initiatingMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
+    participantIds: new Set(["49070739-630c-2223-c8a5-2e6c9270fdb2", "79070739-630c-4423-c8a5-2e6c9270fdb2"]),
+    adminIds: new Set([]),
+    state: "Created"}})
+  
+  await whenConversationActivate("1234", false)
+
+  expect(loggerErrorMock).toBeCalledWith("conversation activate failed for command: {\"conversationId\":\"1234\",\"validated\":false} with Error: Conversation 1234 is invalid")
+})
+
 function expectSentEventToContain(matchingContent: any)
 {
   expect(eventbridgeMock.commandCalls(PutEventsCommand)[0].args[0].input).toEqual(

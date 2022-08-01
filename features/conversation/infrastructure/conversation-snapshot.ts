@@ -34,6 +34,11 @@ export class ConversationSnapshot implements ConversationSnapshotAttributes{
 
     Object.assign(conversationSnapshot, snapshot)
 
+    if (conversationSnapshot.adminIds == null)
+    {
+      conversationSnapshot.adminIds = new Set([])
+    }
+
     return conversationSnapshot
   }
 

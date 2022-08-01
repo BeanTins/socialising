@@ -126,6 +126,8 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
       participantIds: new Set([firstParticipant.memberId, secondParticipant.memberId]),
       adminIds: new Set()})
 
+    const event = await eventListener.waitForEventType("ConversationCreated")
+    
     validateResponse = true
   })
 

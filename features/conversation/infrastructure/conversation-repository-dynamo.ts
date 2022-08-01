@@ -31,9 +31,9 @@ export class ConversationRepositoryDynamo implements ConversationRepository
       TableName: process.env.ConversationsTableName!.repeat(1),
       Key: {
         id: id
-      },
+      }
     }))
-    
+
     if (result.Item != undefined)
     {
        let snapshot: ConversationSnapshot = ConversationSnapshot.createFromRawData(result.Item)

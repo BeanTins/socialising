@@ -130,7 +130,7 @@ export class ConversationsAccessor {
     try{
       for (let retry = 0; retry < retries; retry++) {
         let result = await this.dynamoDB.send(new ScanCommand(params))
-        logger.verbose("wait for conversation to be added - " + JSON.stringify(result))
+        logger.verbose("wait for conversation to be added/updated - " + JSON.stringify(result))
         if(conditionFunction(result))        {
           break
         }

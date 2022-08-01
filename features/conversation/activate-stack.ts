@@ -27,7 +27,7 @@ export class ConversationActivateCommand extends EnvvarsStack {
     const queue = Queue.fromQueueArn(this, "ValidateConnectionsResponseQueue", props.responseQueueArn)
 
     this.lambda = new NodejsFunction(this, "ActivateFunction", {
-      environment: {QueueName: queue.queueName, EventBusName: props.eventBusName},
+      environment: {QueueName: queue.queueName, EventBusName: props.eventBusName, ConversationsTableName: props.conversationsTable.tableName},
       memorySize: 1024,
       timeout: Duration.seconds(5),
       runtime: Runtime.NODEJS_16_X,
