@@ -1,0 +1,61 @@
+{
+  "name": "socialising",
+  "version": "0.1.0",
+  "bin": {
+    "socialising": "provisioning/socialising-dev.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "cdk": "cdk",
+    "test:service": "jest --projects jest.service.config.ts",
+    "test:unit": "jest --projects jest.unit.config.ts",
+    "deploy": "npx cdk deploy SocialisingDev* SocialisingDev/* --app \"npx ts-node provisioning/socialising-dev.ts\" --outputs-file awsDeploy_outputs.json"
+  },
+  "devDependencies": {
+    "@apollo/client": "^3.6.9",
+    "@aws-sdk/client-eventbridge": "^3.118.0",
+    "@types/jest": "26.0.10",
+    "@types/node": "10.17.27",
+    "@types/prettier": "2.6.0",
+    "apollo-cache-inmemory": "^1.6.6",
+    "aws-cdk": "2.27.0",
+    "aws-cdk-lib": "2.27.0",
+    "jest": "28.1.0",
+    "jest-cucumber": "^3.0.1",
+    "ts-jest": "28.0.4",
+    "ts-node": "9.0.0",
+    "typescript": "4.5.2"
+  },
+  "dependencies": {
+    "@apollo/link-context": "^2.0.0-beta.3",
+    "@apollo/link-ws": "^2.0.0-beta.3",
+    "@aws-cdk/aws-appsync-alpha": "^2.27.0-alpha.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.112.0",
+    "@aws-sdk/client-dynamodb": "^3.121.0",
+    "@aws-sdk/client-sqs": "^3.127.0",
+    "@aws-sdk/lib-dynamodb": "^3.121.0",
+    "@aws-sdk/types": "^3.127.0",
+    "@types/aws-lambda": "^8.10.101",
+    "@types/websocket": "^1.0.5",
+    "@types/ws": "^8.5.3",
+    "apollo-client": "^2.6.10",
+    "apollo-link-http": "^1.5.17",
+    "aws-appsync-auth-link": "^3.0.7",
+    "aws-appsync-subscription-link": "^3.1.0",
+    "aws-sdk-client-mock": "^1.0.0",
+    "constructs": "^10.0.0",
+    "esbuild": "^0.14.47",
+    "graphql": "^15.8.0",
+    "graphql-request": "^4.3.0",
+    "graphql-subscriptions-client": "^0.16.4",
+    "graphql-ws": "^5.9.1",
+    "jest-junit": "^13.2.0",
+    "source-map-support": "^0.5.21",
+    "websocket": "^1.0.34",
+    "websocket-ts": "^1.1.1",
+    "winston": "^3.8.0",
+    "ws": "^8.8.1"
+  }
+}
