@@ -128,33 +128,49 @@ export class ConversationClient
 
     async sendMessage(parameters: SendMessageParameters)
     {
-      let response: string = ""
+      let response: Response
       const graphQLClient = new GraphQLClient(this.endpoint, {
         headers: {
           Authorization: parameters.idToken!,
         }
       })
 
+      // recipientDeviceId: GraphqlType.string(),
+      //           encryptedMessage: GraphqlType.string() 
+
+      // returnType: GraphqlType.id({isRequired: false}),
+      // args: {
+      //   messageEncryptions: DeviceMessage.attribute({isRequired: true, isList: true})
+      // }
+  
+      // input DeviceMessage {
+      //   recipientDeviceId: String
+      //   encryptedMessage: String
+      // }
+
       const SendMessageCommand = gql`
-      mutation SendMessage($senderDeviceId: String!, $senderMemberId: String!, $message: String!, $conversationId: String!) {
-        sendMessage(senderDeviceId: $senderDeviceId, senderMemberId: $senderMemberId, message: $message, conversationId: $conversationId)
+      mutation SendMessage($conversationId: ID!, $senderMemberId: ID!, $senderDeviceId: ID!, $messageEncryptions: [DeviceMessage!]) {
+        sendMessage(conversationId: $conversationId, senderMemberId: $senderMemberId, senderDeviceId: $senderDeviceId, messageEncryptions: $messageEncryptions)
       }
     `;      
       
       const variables = {
-        senderDeviceId: parameters.deviceId,
+        conversationId: parameters.conversationId,
         senderMemberId: parameters.memberId,
-        message: parameters.message,
-        conversationId: parameters.conversationId
+        senderDeviceId: parameters.deviceId,
+        messageEncryptions: [{recipientDeviceId: parameters.deviceId, encryptedMessage: parameters.message}]
       }
+      console.log(variables)
+
       try
       {
         const data = await graphQLClient.request(SendMessageCommand, variables)
+        response = {result: Result.Succeeded, message: data.sendMessage.id}
       }
       catch(error)
       {
         logger.verbose("Send Message error - " + JSON.stringify(error, undefined, 2))
-        response = error.response.errors[0].message
+        response = {result: Result.Failed, message: error.response.errors[0].message}
       }
 
       return response

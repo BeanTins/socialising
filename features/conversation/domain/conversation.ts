@@ -21,13 +21,28 @@ export enum State{
     Activated = "Activated"
 }
 
+export interface EncryptedDeviceMessage{
+  recipientDeviceId: string
+  message: string
+}
+
+export type MessageEncryptions = EncryptedDeviceMessage[]
+
+interface Message{
+  id: string
+  date: number
+  encryptions: MessageEncryptions
+}
+
 export class Conversation extends Entity {
 
   private initiatingMemberId: string
   private name: string
-  private participantIds: Set<string>
+  readonly participantIds: Set<string>
   private adminIds: Set<string>
   private state: State
+  private messages: string[]
+  private newMessage: Message | undefined
 
   private constructor(initiatingMemberId: string, name: string|null, participantIds: Set<string>, adminIds: Set<string>, id: string|null) {
     super(id)
@@ -36,6 +51,7 @@ export class Conversation extends Entity {
     this.participantIds = participantIds
     this.adminIds = adminIds
     this.state = State.Created
+    this.messages = []
   }
 
   public static create(initiatingMemberId: string, participantIds: Set<string>, name: string|null = null, adminIds: Set<string> = new Set()): Conversation
@@ -69,6 +85,41 @@ export class Conversation extends Entity {
   {
     this.state = State.Activated
   }
+
+  public sendMessage(
+    senderMemberId: string, 
+    senderDeviceId: string, 
+    conversationDevices: Set<string>, 
+    messageEncryptions: MessageEncryptions)
+  {
+    if (this.state != "Activated")
+    {
+      throw new MessageSendWithUnactivatedConversation(this.id)
+    }
+
+    if (!this.participantIds.has(senderMemberId))
+    {
+      throw new SenderMemberNotInConversation(senderMemberId, this.id)
+    }
+
+    if (!conversationDevices.has(senderDeviceId))
+    {
+      throw new SenderDeviceNotInConversation(senderDeviceId, this.id)
+    }
+    
+    const messageId = uuidv4()
+     this.newMessage = {
+       id: messageId,
+       date: Date.now(),
+       encryptions: messageEncryptions
+      }
+
+     this.messages.push(messageId)
+     return messageId
+  }
+
+
+
 }
 
 export class AdminsNotInConversation extends Error 
@@ -103,5 +154,26 @@ export class BelowMinimumParticipants extends Error
   }
 }
 
+export class MessageSendWithUnactivatedConversation extends Error 
+{
+  constructor (conversationId: string)
+  {
+    super("Cannot send message with unactivated conversation " + conversationId)
+  }
+}
 
+export class SenderDeviceNotInConversation extends Error 
+{
+  constructor (senderDeviceId: string, conversationId: string)
+  {
+    super("Sender device " + senderDeviceId + " not in conversation " + conversationId)
+  }
+}
 
+export class SenderMemberNotInConversation extends Error 
+{
+  constructor (senderMemberId: string, conversationId: string)
+  {
+    super("Sender member " + senderMemberId + " not in conversation " + conversationId)
+  }
+}

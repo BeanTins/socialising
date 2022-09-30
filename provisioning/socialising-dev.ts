@@ -3,6 +3,7 @@ import { SocialisingStage } from "./socialising-stage"
 import { BeanTinsCredentials, StoreType} from "../../credentials/infrastructure/beantins-credentials"
 import { EventListenerStack } from "../features/conversation/service-tests/helpers/event-listener-stack"
 import { ValidateConnectionsFakeStack } from "../features/conversation/service-tests/helpers/validate-connections-fake-stack"
+import { MembershipEventBusFake } from "../features/conversation/service-tests/helpers/membership-event-bus-fake"
 
 async function main(): Promise<void> 
 {
@@ -23,9 +24,16 @@ async function main(): Promise<void>
     deploymentName: "SocialisingDev"
   })
 
+
+  const membershipEventBus = new MembershipEventBusFake(app, "SocialisingDevMembershipEventBusFake", {
+    deploymentName: "SocialisingDev",
+    env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION }
+  })
+
   const stage = new SocialisingStage(app, "SocialisingDev", {
     stageName: "dev",
     eventListenerQueueArn: Fn.importValue("SocialisingDevEventListenerQueueArn"),
+    membershipEventBusArn: Fn.importValue("SocialisingDevMembershipEventBusFakeArn"),
     validateConnectionsRequestQueueArn: Fn.importValue("SocialisingDevValidateConnectionsRequestQueueArn"),
     validateConnectionsResponseQueueArn: Fn.importValue("SocialisingDevValidateConnectionsResponseQueueArn"),
     userPoolId: Fn.importValue("SocialisingDevUserPoolId"),

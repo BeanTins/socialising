@@ -1,7 +1,8 @@
 import { lambdaHandler } from "../create"
 import { Context  } from "aws-lambda"
 import { mockClient } from "aws-sdk-client-mock"
-import {DynamoDBDocumentClient, PutCommand} from "@aws-sdk/lib-dynamodb"
+import {DynamoDBDocumentClient, TransactWriteCommand} from "@aws-sdk/lib-dynamodb"
+import { ConversationAttributes } from "./helpers/conversation-attributes"
 
 const loggerVerboseMock = jest.fn()
 const loggerErrorMock = jest.fn()
@@ -53,19 +54,32 @@ test("conversation create stored", async () => {
 
   await whenConversationCreate("1234", ["5678", "9012"], [], "surrey coding kata")
 
-  expect(dynamoMock.commandCalls(PutCommand)[0].args[0].input).toEqual(
+  thenConversationCreatedAs({
+    adminIds: new Set(),
+    id: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
+    initiatingMemberId: "1234",
+    name: "surrey coding kata",
+    messages: [],
+    participantIds: new Set(["5678", "9012", "1234"]),
+    state: "Created"
+  })
+
+})
+
+function thenConversationCreatedAs(conversation: ConversationAttributes) {
+  expect(dynamoMock.commandCalls(TransactWriteCommand)[0].args[0].input).toEqual(
     expect.objectContaining({
-      "Item": {adminIds: new Set(),
-               id: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
-               initiatingMemberId: "1234",
-               name: "surrey coding kata",
-               participantIds: new Set(["5678", "9012", "1234"]),
-               state: "Created"
-              },
-      "TableName": "ConversationsTable1"
+      TransactItems: expect.arrayContaining([
+        expect.objectContaining({
+          Put: expect.objectContaining({
+            Item: conversation,
+            TableName: "ConversationsTable1"
+          })
+        })
+      ])
     })
   )
-})
+}
 
 async function whenConversationCreate(
   initiatingMemberId: string, 

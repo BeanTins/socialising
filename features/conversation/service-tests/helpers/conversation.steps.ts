@@ -4,12 +4,16 @@ import { TestEnvVarSetup } from "./test-env-var-setup"
 import { MemberCredentialsAccessor} from "./member-credentials-accessor"
 import { ConversationClient, Response, Result} from "./conversation-client"
 import logger from "./service-test-logger"
-import { FakeMemberDevice } from "./fake-member-device"
+import { FakeMember } from "./fake-member"
 import { ConversationsAccessor } from "./conversations-accessor"
 import { EventListenerClient } from "./event-listener-client"
 import { ValidateConnectionsRequestListenerClient } from "./validate-connections-request-listener-client"
 import { ValidateConnectionsResponseFakeClient } from "./validate-connections-response-fake-client"
 import { ConversationActivated,ConversationCreated } from "../../domain/events"
+import { MemberDevicesProjectionAccessor } from "./member-devices-projection-accessor"
+import { v4 as uuidv4 } from "uuid"
+import { MessagesAccessor } from "./messages-accessor"
+import { TestEventPublisher } from "./test-event-publisher"
 
 const AWS_REGION = "us-east-1"
 
@@ -18,8 +22,8 @@ let testEnvVarSetup: TestEnvVarSetup
 let memberCredentials: MemberCredentialsAccessor
 let expectedFailureResponse: string
 let eventListener: EventListenerClient
-let firstParticipant: FakeMemberDevice
-let secondParticipant: FakeMemberDevice
+let firstParticipant: FakeMember
+let secondParticipant: FakeMember
 let response: Response
 let invitedMemberIds: string[]
 let conversations: ConversationsAccessor
@@ -27,6 +31,11 @@ let validateConnectionsRequestListener: ValidateConnectionsRequestListenerClient
 let validateConnectionsResponse: ValidateConnectionsResponseFakeClient
 let validateResponse: boolean
 let conversationId: string
+let deviceName: string
+let memberDevicesProjection: MemberDevicesProjectionAccessor 
+let membershipEventBusFakeArn: string
+let messages: MessagesAccessor
+let testEventPusblisher: TestEventPublisher
 
 beforeAll(async()=> {
 
@@ -42,6 +51,10 @@ beforeAll(async()=> {
       tableName: testEnvVarSetup.resolveVariable("ConversationsTableName")
     })
 
+    messages = new MessagesAccessor(AWS_REGION, {
+      tableName: testEnvVarSetup.resolveVariable("MessagesTableName")
+    })
+
     client = new ConversationClient(testEnvVarSetup.resolveVariable("ConversationStackapiURL"))
 
     eventListener = new EventListenerClient(AWS_REGION, {
@@ -55,6 +68,15 @@ beforeAll(async()=> {
     validateConnectionsResponse = new ValidateConnectionsResponseFakeClient(AWS_REGION, {
       queueName: testEnvVarSetup.resolveVariable("ValidateConnectionsResponseQueueName")
     })
+
+    memberDevicesProjection = new MemberDevicesProjectionAccessor(AWS_REGION, {
+      tableName: testEnvVarSetup.resolveVariable("MemberDevicesProjectionName")
+    })
+
+    testEventPusblisher = new TestEventPublisher(AWS_REGION)
+
+    membershipEventBusFakeArn = testEnvVarSetup.resolveVariable("MembershipEventBusFakeArn")
+
   } 
   catch(error)
   {
@@ -83,8 +105,8 @@ beforeEach(async () => {
   console.log("Running test: " + currentTestName)
   logger.verbose("*** Running test - " + currentTestName + " ***")
   
-  firstParticipant = new FakeMemberDevice(memberCredentials)
-  secondParticipant = new FakeMemberDevice(memberCredentials)
+  firstParticipant = new FakeMember(memberCredentials, membershipEventBusFakeArn, AWS_REGION)
+  secondParticipant = new FakeMember(memberCredentials, membershipEventBusFakeArn, AWS_REGION)
   invitedMemberIds = []
   validateResponse = false
   conversationId = ""
@@ -93,7 +115,10 @@ beforeEach(async () => {
     conversations.clear(),
     eventListener.clear(),
     validateConnectionsRequestListener.clear(),
-    validateConnectionsResponse.clear()
+    validateConnectionsResponse.clear(),
+
+    memberDevicesProjection.clear(),
+    messages.clear()
    ])
    jest.setTimeout(getTestTimeout(currentTestName))
 
@@ -106,6 +131,12 @@ afterAll(async() => {
 
 export const conversationSteps: StepDefinitions = ({ given, and, when, then }) => {
 
+  given(/a new member (\w+) using a (\w+)/, async (firstParticipantName, theDeviceName) => {
+    firstParticipant.withName(firstParticipantName)
+    deviceName = theDeviceName
+    firstParticipant.withDevice(theDeviceName)
+  })
+
   given(/(\w+) wants a conversation on their own/, async (firstParticipantName) => {
     expectedFailureResponse = "Conversation must have at least 2 participants"
     firstParticipant.withName(firstParticipantName)
@@ -115,7 +146,7 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
 
   given(/a pending conversation instigated by (.+) with their connection (.+)/, async (firstParticipantName, secondParticipantName) => {
     
-    conversationId = "f28f14fd-177c-4bc3-a599-4f194e032667"
+    conversationId = uuidv4()
 
     firstParticipant.withName(firstParticipantName)
     secondParticipant.withName(secondParticipantName)
@@ -123,6 +154,8 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
     await conversations.add({id: conversationId,
       initiatingMemberId: firstParticipant.memberId,
       name: "",
+      state: "Created",
+      messages: [],
       participantIds: new Set([firstParticipant.memberId, secondParticipant.memberId]),
       adminIds: new Set()})
 
@@ -141,6 +174,51 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
     await firstParticipant.authenticatedWithPassword("passw0rd")
   })
 
+  given(/an existing conversation between (\w+)'s (\w+) and (\w+)'s (\w+)/, 
+      async (firstParticipantName: string, 
+             firstParticipantDevice: string,
+             secondParticipantName: string,
+             secondParticipantDevice: string) => {
+
+    firstParticipant.withName(firstParticipantName)
+    firstParticipant.withDevice(firstParticipantDevice)
+    secondParticipant.withName(secondParticipantName)
+    secondParticipant.withDevice(secondParticipantDevice)
+    await firstParticipant.activated()
+    await secondParticipant.activated()
+    conversationId = uuidv4() 
+
+    invitedMemberIds = [secondParticipant.memberId]
+    
+    Promise.all([
+      await memberDevicesProjection.waitForDeviceToBeStored(firstParticipant.memberId, firstParticipant.idForDevice(firstParticipantDevice)!),
+      await memberDevicesProjection.waitForDeviceToBeStored(secondParticipant.memberId, secondParticipant.idForDevice(secondParticipantDevice)!),   
+      await conversations.add({
+        id: conversationId,
+        initiatingMemberId: firstParticipant.memberId,
+        name: "",
+        state: "Activated",
+        messages: [],
+        participantIds: new Set([firstParticipant.memberId, secondParticipant.memberId]),
+        adminIds: new Set([])
+      }),
+      await firstParticipant.authenticatedWithPassword("passw0rd")
+    ])
+    
+  })
+
+  when(/(\w+)'s (\w+) sends the message "(.+)"/, async (sender: string, deviceName: string, message: string) => {
+
+    const idToken = await memberCredentials.requestIdToken(firstParticipant.email, "passw0rd")
+
+    response = await client.sendMessage(
+      {memberId: firstParticipant.memberId, 
+       deviceId: firstParticipant.idForDevice(deviceName)!, 
+       conversationId: conversationId, 
+       message,
+       idToken: idToken})
+  })
+
   when(/a request is made to create the conversation/, async () => {
 
     const idToken = await memberCredentials.requestIdToken(firstParticipant.email, "passw0rd")
@@ -151,6 +229,12 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
        name: "", 
        adminIds: [],
        idToken: idToken})
+  })
+
+  when(/they are activated/, async () => {
+
+    await firstParticipant.activated()
+    
   })
 
   when(/a validation connection response is received/, async () => {
@@ -181,6 +265,17 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
 
     await expectPublishedActivatedEvent(conversationId)
   })
+
+  then(/in future they are recognised/, async() => {
+
+    expect(await memberDevicesProjection.waitForDeviceToBeStored(firstParticipant.memberId, firstParticipant.idForDevice(deviceName)!)).toBe(true)
+  })
+
+  then(/the message is accepted/, async () => {
+    expect(response.result).toBe(Result.Succeeded)
+    // message is stored
+  })
+
 }
 
 async function expectValidateConnectionsRequest(conversationId: string) {

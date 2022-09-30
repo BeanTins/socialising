@@ -1,24 +1,134 @@
-import { Context } from "aws-lambda"
-import { v4 as uuidv4 } from "uuid"
+import { Context, AppSyncResolverEvent } from "aws-lambda"
+import { Conversation, MessageEncryptions } from "./domain/conversation"
+import { ConversationRepository} from "./domain/conversation-repository"
+import { ConversationRepositoryDynamo} from "./infrastructure/conversation-repository-dynamo"
+import logger from "./infrastructure/lambda-logger"
+import { GraphqlType, Field, InputType } from "@aws-cdk/aws-appsync-alpha"
+import { GraphQLField} from "./infrastructure/graphQL-field"
+import { MemberDevicesProjectionDAO } from "./infrastructure/member-devices-projection-dao"
 
 interface SendMessageEvent {
-  arguments: {
-    senderDeviceId: string
-    senderMemberId: string
-    conversationId: string
-    message: string
+  conversationId: string
+  senderMemberId: string
+  senderDeviceId: string
+  messageEncryptions: MessageEncryptions
+}
+
+export const DeviceMessage = new InputType("DeviceMessage", {
+  definition: { recipientDeviceId: GraphqlType.string(),
+                encryptedMessage: GraphqlType.string() }
+})
+
+export const conversationSendMessageGraphQLField: GraphQLField = {
+  name: "sendMessage",
+  type: "Mutation",
+  schema:  new Field({
+    returnType: GraphqlType.id({isRequired: false}),
+    args: {
+      conversationId: GraphqlType.id({isRequired: true}),
+      senderMemberId: GraphqlType.id({isRequired: true}),
+      senderDeviceId: GraphqlType.id({isRequired: true}),
+      messageEncryptions: DeviceMessage.attribute({isRequired: true, isList: true})
+    }
+  })
+} 
+
+export const lambdaHandler = async (event: AppSyncResolverEvent<SendMessageEvent>, context: Context): Promise<any|Error> => { 
+  
+  logger.verbose("incoming message - " + JSON.stringify(event))
+
+  const command = new SendMessageCommand(event.arguments.senderMemberId, 
+                                         event.arguments.senderDeviceId, 
+                                         event.arguments.conversationId,
+                                         event.arguments.messageEncryptions)
+
+  const commandHandler = new SendMessageCommandHandler()
+
+  return await commandHandler.handle(command)
+}
+
+
+export class SendMessageCommandHandler {
+
+  private conversationRepository: ConversationRepository
+  private memberDevices: MemberDevicesProjectionDAO
+
+  public constructor() {
+    this.conversationRepository = new ConversationRepositoryDynamo(process.env.AWS_REGION!)
+    this.memberDevices = new MemberDevicesProjectionDAO(process.env.AWS_REGION!)
+  }
+
+  async handle(command: SendMessageCommand) {
+
+    let messageId
+
+    try{
+      
+      const conversation = await this.conversationRepository.load(command.conversationId)
+
+      if (conversation == null)
+      {
+         throw new UnknownConversation(command.conversationId)
+      }
+
+      const conversationDevices = await this.memberDevices.allDevicesForMembers(Array.from(conversation.participantIds!))
+
+      messageId = conversation.sendMessage(
+        command.senderMemberId, 
+        command.senderDeviceId, 
+        new Set(conversationDevices),
+        command.messageEncryptions)   
+
+      await this.conversationRepository.save(conversation)
+    }
+    catch(error)
+    {
+      logger.error("conversation send message failed for command: " + JSON.stringify(command, (key, value) => value instanceof Set ? [...value]: value) + " with " + error)
+      throw error
+    }
+
+    return messageId
   }
 }
 
-export const lambdaHandler = async (event: SendMessageEvent, context: Context): Promise<string | Error> => {
-  console.log(JSON.stringify(event, undefined, 2));
+export class SendMessageCommand {
+  constructor(senderMemberId: string, senderDeviceId: string, conversationId: string, messageEncryptions: MessageEncryptions)
+  {
+    this.senderMemberId = senderMemberId
+    this.senderDeviceId = senderDeviceId
+    this.conversationId = conversationId
+    this.messageEncryptions = messageEncryptions
+  }
+  senderMemberId: string
+  senderDeviceId: string
+  conversationId: string
+  messageEncryptions: MessageEncryptions
+}
 
-  try {
-
-    throw new Error("Unknown conversation")
-    return uuidv4()
-  } catch (err) {
-    console.error(`SOMETHING WENT WRONG: ${JSON.stringify(err, undefined, 2)}`);
-    throw new Error(`${err.message}`);
+export class UnknownConversation extends Error 
+{
+  constructor (conversationId: string)
+  {
+    super("Unknown conversation " + conversationId + " received")
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

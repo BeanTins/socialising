@@ -35,4 +35,30 @@ export class TestEventPublisher {
       logger.error("Failed to post ConversationStarted event: " + error)
     }
   }
+
+  async activateMember(name: string, email: string, id: string, deviceId: string)
+  {
+    const params = {
+    Entries: [
+      {
+        Detail: JSON.stringify({name: name, email: email, id: id, deviceId: deviceId}),
+        DetailType: "MemberActivatedEvent",
+        EventBusName: this.eventBusName,
+        Source: "membership.beantins.com",
+      }
+    ]
+    }
+
+    try
+    {
+       logger.verbose("post MemberActivatedEvent - " + JSON.stringify(params))
+       const result = await this.eventbridge.send(new PutEventsCommand(params))
+       logger.verbose("post MemberActivatedEvent successfully - " + JSON.stringify(result))
+    }
+    catch(error)
+    {
+      logger.error("Failed to post member activated event: " + error)
+    }
+  }
+
 }

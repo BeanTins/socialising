@@ -4,13 +4,13 @@ import { Construct } from "constructs"
 import {IPrincipal} from "aws-cdk-lib/aws-iam"
 import {EnvvarsStack} from "../../../infrastructure/envvars-stack"
 
-interface ConversationsTableProps extends StackProps {
+interface MessagesTableProps extends StackProps {
   stageName: string;
 }
 
-export class ConversationsTable extends EnvvarsStack {
+export class MessagesTable extends EnvvarsStack {
   public readonly conversations: Table
-  constructor(scope: Construct, id: string, props: ConversationsTableProps) {
+  constructor(scope: Construct, id: string, props: MessagesTableProps) {
     super(scope, id, props)
     this.conversations = new Table(this, "Table", {
       partitionKey: { name: "id", type: AttributeType.STRING },

@@ -1,13 +1,16 @@
 import { StageProps, Stage } from "aws-cdk-lib"
 import { Construct } from "constructs"
 import { SocialisingEventBus } from "../infrastructure/event-bus"
-import { SendMessageCommand } from "../features/conversation/send-message-stack"
 import { ConversationStack } from "../features/conversation/conversation-stack"
 import { ConversationsTable } from "../features/conversation/infrastructure/conversations-table"
+import { MessagesTable } from "../features/conversation/infrastructure/messages-table"
 import { conversationCreateGraphQLField, CreatedResponse } from "../features/conversation/create"
+import { conversationSendMessageGraphQLField, DeviceMessage } from "../features/conversation/send-message"
 import { conversationLatestMessagesGraphQLField } from "../features/conversation/latest-messages"
 import { ValidateConnectionsRequestPolicy } from "../features/conversation/validate-connections-request-policy-stack"
 import { ConversationActivateCommand } from "../features/conversation/activate-stack"
+import { MemberDevicesProjection} from "../features/conversation/infrastructure/member-devices-projection"
+import { MemberDevicesProjectionHandler } from "../features/conversation/member-devices-projection-handler-stack"
 import * as path from "path"
 
 interface SocialisingStageProps extends StageProps{
@@ -17,14 +20,17 @@ interface SocialisingStageProps extends StageProps{
   eventListenerQueueArn?: string
   validateConnectionsRequestQueueArn: string
   validateConnectionsResponseQueueArn: string
+  membershipEventBusArn: string
 }
 
 export class SocialisingStage extends Stage implements Stage{
   private conversationsTable: ConversationsTable
+  private messagesTable: MessagesTable
+  private memberDevicesProjection: MemberDevicesProjection
   private conversationGraphQL: ConversationStack
-  private sendMessageCommand: SendMessageCommand
   private activateCommand: ConversationActivateCommand
   private validateConnectionsRequestPolicy: ValidateConnectionsRequestPolicy
+  private memberDevicesProjectionHandler: MemberDevicesProjectionHandler
   private eventBus: SocialisingEventBus
   private customStackNamePrepend: string|undefined
   private _envvars: string[]
@@ -73,11 +79,21 @@ export class SocialisingStage extends Stage implements Stage{
     }
 
     this.conversationsTable = this.createStack(ConversationsTable, { stageName: props.stageName })
+    this.messagesTable = this.createStack(MessagesTable, { stageName: props.stageName })
+
+    this.memberDevicesProjection = this.createStack(MemberDevicesProjection, { stageName: props.stageName })
 
     this.conversationGraphQL = this.createStack(ConversationStack,
       {
         userPoolId: props.userPoolId,
       })
+
+    this.memberDevicesProjectionHandler = this.createStack(MemberDevicesProjectionHandler,
+      {
+        memberDevicesProjectionTableName: this.memberDevicesProjection.name,
+        membershipEventBusArn: props.membershipEventBusArn
+      })
+    this.memberDevicesProjection.grantAccessTo(this.memberDevicesProjectionHandler.lambda.grantPrincipal)
 
     const latestMessagesLambda = this.conversationGraphQL.addField({
       resourceLabel: "ConversationLatestMessages",
@@ -89,10 +105,27 @@ export class SocialisingStage extends Stage implements Stage{
     
     const createCommandLambda = this.conversationGraphQL.addField({
       resourceLabel: "ConversationCreate",
-      functionEnvironment: {ConversationsTableName: this.conversationsTable.name},
+      functionEnvironment: {
+        ConversationsTableName: this.conversationsTable.name, 
+        MemberDevicesProjectionTableName: this.memberDevicesProjection.name
+      },
       functionSourceLocation: path.join(__dirname, "../features/conversation/create.ts"),
       field: conversationCreateGraphQLField})
     this.conversationsTable.grantAccessTo(createCommandLambda.grantPrincipal)
+
+    this.conversationGraphQL.addType(DeviceMessage)    
+    const sendMessageCommandLambda = this.conversationGraphQL.addField({
+      resourceLabel: "ConversationSendMessage",
+      functionEnvironment: {
+        ConversationsTableName: this.conversationsTable.name, 
+        MessagesTableName: this.messagesTable.name,
+        MemberDevicesProjectionTableName: this.memberDevicesProjection.name
+      },
+      functionSourceLocation: path.join(__dirname, "../features/conversation/send-message.ts"),
+      field: conversationSendMessageGraphQLField})
+    this.memberDevicesProjection.grantAccessTo(sendMessageCommandLambda.grantPrincipal)
+    this.conversationsTable.grantAccessTo(sendMessageCommandLambda.grantPrincipal)
+    this.messagesTable.grantAccessTo(sendMessageCommandLambda.grantPrincipal)
 
     this.validateConnectionsRequestPolicy = this.createStack(ValidateConnectionsRequestPolicy, {
       conversationsTable: this.conversationsTable.conversations,

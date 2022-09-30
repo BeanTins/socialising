@@ -1,8 +1,10 @@
 import { lambdaHandler } from "../activate"
 import { Context  } from "aws-lambda"
 import { mockClient } from "aws-sdk-client-mock"
-import {DynamoDBDocumentClient, PutCommand, GetCommand} from "@aws-sdk/lib-dynamodb"
+import {DynamoDBDocumentClient, TransactWriteCommand, GetCommand} from "@aws-sdk/lib-dynamodb"
 import { EventBridgeClient, PutEventsCommand } from "@aws-sdk/client-eventbridge"
+import {ConversationAttributes} from "./helpers/conversation-attributes"
+import {MessageAttributes} from "./helpers/message-attributes"
 
 const loggerVerboseMock = jest.fn()
 const loggerErrorMock = jest.fn()
@@ -32,16 +34,24 @@ test("conversation activate validated updates domain object", async () => {
 
   await whenConversationActivate("1234", true)
 
-  expect(dynamoMock.commandCalls(PutCommand)[0].args[0].input).toEqual(
+  expect(dynamoMock.commandCalls(TransactWriteCommand)[0].args[0].input).toEqual(
     expect.objectContaining({
-      Item: expect.objectContaining({state: "Activated"}),
-      TableName: "ConversationsTable1"
-    }))
+      TransactItems:expect.arrayContaining([
+        expect.objectContaining({
+          Put: expect.objectContaining({
+            Item: expect.objectContaining({state: "Activated"}),
+            TableName: "ConversationsTable1"
+          })
+        })
+      ])
+    })
+  )
+
 })
 
 test("conversation activate fails if conversation is unknown", async () => {
 
-  dynamoMock.on(GetCommand).resolves({Item: undefined})
+  givenConversation(undefined)
 
   await whenConversationActivate("1234", true)
 
@@ -54,18 +64,16 @@ test("conversation activate validated raises event", async () => {
   process.env.ConversationsTableName = "ConversationsTable1"
   process.env.EventBusName = "SocialisingEventBus"
 
-  dynamoMock.on(GetCommand).resolves({Item: {
+  givenConversation({
     id: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
-    name: "",
     initiatingMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
     participantIds: new Set(["49070739-630c-2223-c8a5-2e6c9270fdb2", "79070739-630c-4423-c8a5-2e6c9270fdb2"]),
     adminIds: new Set([]),
-    state: "Created"}})
-
+    state: "Created"})
 
   await whenConversationActivate("1234", true)
 
-  expectSentEventToContain({Detail: JSON.stringify({
+  thenSentEventContains({Detail: JSON.stringify({
     conversationId: "1234"
     }),
     DetailType: "ConversationActivated",
@@ -86,20 +94,19 @@ test("conversation activate fails if conversation is invalid", async () => {
 
 test("conversation activate fails if validation fails", async () => {
 
-  dynamoMock.on(GetCommand).resolves({Item: {
+  givenConversation({
     id: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
-    name: "",
     initiatingMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
     participantIds: new Set(["49070739-630c-2223-c8a5-2e6c9270fdb2", "79070739-630c-4423-c8a5-2e6c9270fdb2"]),
     adminIds: new Set([]),
-    state: "Created"}})
-  
+    state: "Created"})
+
   await whenConversationActivate("1234", false)
 
   expect(loggerErrorMock).toBeCalledWith("conversation activate failed for command: {\"conversationId\":\"1234\",\"validated\":false} with Error: Conversation 1234 is invalid")
 })
 
-function expectSentEventToContain(matchingContent: any)
+function thenSentEventContains(matchingContent: any)
 {
   expect(eventbridgeMock.commandCalls(PutEventsCommand)[0].args[0].input).toEqual(
     expect.objectContaining({
@@ -108,6 +115,35 @@ function expectSentEventToContain(matchingContent: any)
       ])
     })
   )
+}
+
+function thenMessageCreated(message: MessageAttributes)
+{
+  expect(dynamoMock.commandCalls(TransactWriteCommand)[0].args[0].input).toEqual(
+    expect.objectContaining({
+      TransactItems:expect.arrayContaining([
+        expect.objectContaining({
+          Put: expect.objectContaining({
+            TableName: "Conversations",
+            Item: expect.objectContaining({messages: [message.id]})
+          })
+        }),
+        expect.objectContaining({
+          Put: expect.objectContaining({
+            TableName: "Messages",
+            Item: expect.objectContaining({id: message.id,
+                                           date: new Date(message.date).valueOf(),
+                                           encryptions: message.encryptions})
+          })
+        })        
+      ])
+    })
+  )
+}
+  
+function givenConversation(conversation: ConversationAttributes|undefined)
+{
+  dynamoMock.on(GetCommand).resolves({Item: conversation})
 }
 
 async function whenConversationActivate(

@@ -8,7 +8,7 @@ import { EventDispatcher } from "./infrastructure/event-dispatcher"
 import { ValidateConnectionsRequestClient } from "./infrastructure/validate-connections-request-client"
 
 export const lambdaHandler = async (dynamoDBStreamEvent: DynamoDBStreamEvent, context: Context): Promise<any> => {
-  
+
     try{
 
     const event = EventParser.parse(dynamoDBStreamEvent) 
@@ -68,8 +68,6 @@ export class EventParser{
   }
 }
 
-
-
 function requestValidateConnections(event: ConversationCreated) {
   let invitedMemberIds: Set<string> = new Set(Array.from(event.participantIds).filter((item) => {
     return item !== event.initiatorId
@@ -79,6 +77,7 @@ function requestValidateConnections(event: ConversationCreated) {
     region: process.env.AWS_REGION!,
     queueName: process.env.QueueName!
   })
+
   client.send({
     correlationId: event.id,
     initiatingMemberId: event.initiatorId,

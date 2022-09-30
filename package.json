@@ -10,6 +10,7 @@
     "test": "jest",
     "cdk": "cdk",
     "test:service": "jest --projects jest.service.config.ts",
+    "test:service:sendmessage": "export filter=\"@conversationsendmessage and @technical\";jest --projects jest.service.config.ts",    
     "test:unit": "jest --projects jest.unit.config.ts",
     "deploy": "npx cdk deploy SocialisingDev* SocialisingDev/* --app \"npx ts-node provisioning/socialising-dev.ts\" --outputs-file awsDeploy_outputs.json"
   },
@@ -38,6 +39,7 @@
     "@aws-sdk/lib-dynamodb": "^3.121.0",
     "@aws-sdk/types": "^3.127.0",
     "@types/aws-lambda": "^8.10.101",
+    "@types/crypto-js": "^4.1.1",
     "@types/websocket": "^1.0.5",
     "@types/ws": "^8.5.3",
     "apollo-client": "^2.6.10",
@@ -46,6 +48,7 @@
     "aws-appsync-subscription-link": "^3.1.0",
     "aws-sdk-client-mock": "^1.0.0",
     "constructs": "^10.0.0",
+    "cryptojs": "^2.5.3",
     "esbuild": "^0.14.47",
     "graphql": "^15.8.0",
     "graphql-request": "^4.3.0",

@@ -1,7 +1,8 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
 import { DynamoDBDocumentClient, ScanCommand, DeleteCommand, PutCommand, ScanCommandOutput } from "@aws-sdk/lib-dynamodb"
 import logger from "./service-test-logger"
-import { ConversationSnapshot} from "../../infrastructure/conversation-snapshot"
+import { ConversationSnapshot } from "../../infrastructure/conversation-snapshot"
+import {State } from "../../domain/conversation"
 
 interface ConversationsParameters{
   tableName: string
@@ -11,6 +12,8 @@ interface Conversation{
   id: string
   initiatingMemberId: string
   name: string
+  state: "Created" | "Activated"
+  messages: string[]
   participantIds: Set<string>
   adminIds: Set<string>
 }
@@ -77,6 +80,7 @@ export class ConversationsAccessor {
     snapshot.name = conversation.name
     snapshot.initiatingMemberId = conversation.initiatingMemberId
     snapshot.participantIds = conversation.participantIds
+    snapshot.state = <State>conversation.state
 
     return snapshot
   }
