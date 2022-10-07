@@ -11,7 +11,7 @@ export const lambdaHandler = async (event: EventBridgeEvent<any, any>, context: 
   }
   catch(error)
   {
-    logger.error("activated member handler failed for : " + JSON.stringify(event) + " with error:" + error)
+    logger.error("member device projection handler failed for : " + JSON.stringify(event) + " with error:" + error)
     throw error
   }
 }

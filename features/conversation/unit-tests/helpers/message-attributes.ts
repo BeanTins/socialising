@@ -1,5 +1,6 @@
 export interface EncryptedMessage {
   recipientDeviceId: string,
+  recipientMemberId: string,
   message: string
 
 }

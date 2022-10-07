@@ -64,7 +64,7 @@ export class ValidateConnectionsRequestClient {
       }   
       const command = new SendMessageCommand(params)
 
-      logger.verbose("validate connections request - " + command)
+      logger.verbose("validate connections request - " + JSON.stringify(params))
 
       const response = await this.sqsClient.send(command)
     }

@@ -12,6 +12,8 @@ export interface ConversationSnapshotAttributes {
   adminIds: Set<string>
 
   state: State
+
+  messages: string[]
 }
 
 export class ConversationSnapshot implements ConversationSnapshotAttributes{
@@ -27,6 +29,10 @@ export class ConversationSnapshot implements ConversationSnapshotAttributes{
   adminIds: Set<string>
 
   state: State
+
+  messages: string[]
+
+  newMessage: string|undefined
 
   public static createFromRawData(snapshot: Record<string, any>)
   {
@@ -46,7 +52,7 @@ export class ConversationSnapshot implements ConversationSnapshotAttributes{
 
     var conversationSnapshot: ConversationSnapshot = new ConversationSnapshot()
 
-    Object.assign(conversationSnapshot, conversation)
+    Object.assign(conversationSnapshot, conversation, {newMessage: undefined})
    
     return conversationSnapshot
   }

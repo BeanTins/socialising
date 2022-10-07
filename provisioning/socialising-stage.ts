@@ -6,11 +6,15 @@ import { ConversationsTable } from "../features/conversation/infrastructure/conv
 import { MessagesTable } from "../features/conversation/infrastructure/messages-table"
 import { conversationCreateGraphQLField, CreatedResponse } from "../features/conversation/create"
 import { conversationSendMessageGraphQLField, DeviceMessage } from "../features/conversation/send-message"
-import { conversationLatestMessagesGraphQLField } from "../features/conversation/latest-messages"
+import { conversationLatestMessagesGraphQLField, LatestMessagesResponse } from "../features/conversation/latest-messages"
 import { ValidateConnectionsRequestPolicy } from "../features/conversation/validate-connections-request-policy-stack"
 import { ConversationActivateCommand } from "../features/conversation/activate-stack"
 import { MemberDevicesProjection} from "../features/conversation/infrastructure/member-devices-projection"
+import { MemberMessagesProjection} from "../features/conversation/infrastructure/member-messages-projection"
 import { MemberDevicesProjectionHandler } from "../features/conversation/member-devices-projection-handler-stack"
+import { MemberMessagesProjectionHandler } from "../features/conversation/member-messages-projection-handler-stack"
+import { ConversationMessageSentPublisher } from "../features/conversation/message-sent-publisher-stack"
+import { ConversationActivatedPublisher } from "../features/conversation/activated-publisher-stack"
 import * as path from "path"
 
 interface SocialisingStageProps extends StageProps{
@@ -27,12 +31,16 @@ export class SocialisingStage extends Stage implements Stage{
   private conversationsTable: ConversationsTable
   private messagesTable: MessagesTable
   private memberDevicesProjection: MemberDevicesProjection
+  private memberMessagesProjection: MemberMessagesProjection
   private conversationGraphQL: ConversationStack
   private activateCommand: ConversationActivateCommand
   private validateConnectionsRequestPolicy: ValidateConnectionsRequestPolicy
   private memberDevicesProjectionHandler: MemberDevicesProjectionHandler
+  private memberMessagesProjectionHandler: MemberMessagesProjectionHandler
   private eventBus: SocialisingEventBus
   private customStackNamePrepend: string|undefined
+  private messageSentPublisher: ConversationMessageSentPublisher
+  private activatedPublisher: ConversationActivatedPublisher
   private _envvars: string[]
 
   get envvars(): string[] {
@@ -82,6 +90,7 @@ export class SocialisingStage extends Stage implements Stage{
     this.messagesTable = this.createStack(MessagesTable, { stageName: props.stageName })
 
     this.memberDevicesProjection = this.createStack(MemberDevicesProjection, { stageName: props.stageName })
+    this.memberMessagesProjection = this.createStack(MemberMessagesProjection, { stageName: props.stageName })
 
     this.conversationGraphQL = this.createStack(ConversationStack,
       {
@@ -95,6 +104,16 @@ export class SocialisingStage extends Stage implements Stage{
       })
     this.memberDevicesProjection.grantAccessTo(this.memberDevicesProjectionHandler.lambda.grantPrincipal)
 
+    this.memberMessagesProjectionHandler = this.createStack(MemberMessagesProjectionHandler,
+      {
+        messagesTableName: this.messagesTable.name,
+        memberMessagesProjectionTableName: this.memberMessagesProjection.name,
+        membershipEventBusArn: this.eventBus.Arn
+      })
+    this.memberMessagesProjection.grantAccessTo(this.memberMessagesProjectionHandler.lambda.grantPrincipal)
+    this.messagesTable.grantAccessTo(this.memberMessagesProjectionHandler.lambda.grantPrincipal)
+
+    this.conversationGraphQL.addType(LatestMessagesResponse)
     const latestMessagesLambda = this.conversationGraphQL.addField({
       resourceLabel: "ConversationLatestMessages",
       functionEnvironment: {},
@@ -134,6 +153,13 @@ export class SocialisingStage extends Stage implements Stage{
       requestQueueArn: props.validateConnectionsRequestQueueArn
      })
 
+     this.messageSentPublisher = this.createStack(ConversationMessageSentPublisher, {
+      conversationsTable: this.conversationsTable.conversations,
+      eventBusName: this.eventBus.Name,
+      eventBusArn: this.eventBus.Arn
+     })
+     this.eventBus.grantAccessTo(this.messageSentPublisher.lambda.grantPrincipal)
+
      this.activateCommand = this.createStack(ConversationActivateCommand, {
       conversationsTable: this.conversationsTable.conversations,
       eventBusName: this.eventBus.Name,
@@ -141,6 +167,14 @@ export class SocialisingStage extends Stage implements Stage{
       responseQueueArn: props.validateConnectionsResponseQueueArn
      })
     this.conversationsTable.grantAccessTo(this.activateCommand.lambda.grantPrincipal)
+
+    this.activatedPublisher = this.createStack(ConversationActivatedPublisher, {
+      conversationsTable: this.conversationsTable.conversations,
+      eventBusName: this.eventBus.Name,
+      eventBusArn: this.eventBus.Arn
+     })
+     this.eventBus.grantAccessTo(this.activatedPublisher.lambda.grantPrincipal)
+
   
     this.conversationGraphQL.addSubscription()
   }

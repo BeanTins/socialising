@@ -16,6 +16,7 @@ interface SendMessageEvent {
 
 export const DeviceMessage = new InputType("DeviceMessage", {
   definition: { recipientDeviceId: GraphqlType.string(),
+                recipientMemberId: GraphqlType.string(),
                 encryptedMessage: GraphqlType.string() }
 })
 

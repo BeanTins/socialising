@@ -1,10 +1,7 @@
 import { Context, SQSEvent } from "aws-lambda"
-import { ConversationActivated } from "./domain/events"
 import logger from "./infrastructure/lambda-logger"
-import { EventDispatcher } from "./infrastructure/event-dispatcher"
 import { ConversationRepositoryDynamo} from "./infrastructure/conversation-repository-dynamo"
 import { ConversationRepository } from "./domain/conversation-repository"
-import { Logger } from "winston"
 
 export const lambdaHandler = async (event: SQSEvent, context: Context): Promise<any> => {
   
@@ -17,8 +14,6 @@ export const lambdaHandler = async (event: SQSEvent, context: Context): Promise<
       const commandHandler = new ActivateCommandHandler()
     
       await commandHandler.handle(command)
-  
-      await postActivatedEvent(command)
     }
   }
   catch(error)
@@ -104,13 +99,5 @@ export class InvalidConversation extends Error
   {
     super("Conversation " + conversationId + " is invalid")
   }
-}
-
-async function postActivatedEvent(command: ActivateCommand) {
-  const eventDispatcher = new EventDispatcher(process.env.AWS_REGION!)
-
-  const event = new ConversationActivated(command.conversationId)
-
-  await eventDispatcher.dispatch(event)
 }
 

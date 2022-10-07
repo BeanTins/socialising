@@ -27,13 +27,16 @@ export class ConversationRepositoryDynamo implements ConversationRepository
 
      if (conversation["newMessage"] != undefined) 
      {
+       const newMessage = conversation["newMessage"]
        writeOperations.push({
          Put: {
            TableName: process.env.MessagesTableName!.repeat(1),
            Item: {
-             id: conversation["newMessage"].id, 
-             date: conversation["newMessage"].date,
-             encryptions: conversation["newMessage"].encryptions
+             id: newMessage.id, 
+             senderMemberId: newMessage.senderMemberId,
+             senderDeviceId: newMessage.senderDeviceId,
+             date: newMessage.date,
+             encryptions: newMessage.encryptions
            }
          }
        })

@@ -10,7 +10,7 @@
     "test": "jest",
     "cdk": "cdk",
     "test:service": "jest --projects jest.service.config.ts",
-    "test:service:sendmessage": "export filter=\"@conversationsendmessage and @technical\";jest --projects jest.service.config.ts",    
+    "test:service:sendmessage": "export filter=\"@conversationsendmessage and @business\";jest --projects jest.service.config.ts",    
     "test:unit": "jest --projects jest.unit.config.ts",
     "deploy": "npx cdk deploy SocialisingDev* SocialisingDev/* --app \"npx ts-node provisioning/socialising-dev.ts\" --outputs-file awsDeploy_outputs.json"
   },

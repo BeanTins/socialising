@@ -11,16 +11,19 @@ interface CreateConversationEvent {
   adminIds: string[]
 }
 
+export const LatestMessagesResponse = new ObjectType("latestMessagesResponse", {
+  definition: { initiatingMemberId: GraphqlType.id(),
+                id: GraphqlType.id() }
+});
+
 export const conversationLatestMessagesGraphQLField: GraphQLField = {
   name: "latestMessages",
   type: "Query",
   schema:  new Field({
-    returnType: GraphqlType.id(),
+    returnType: LatestMessagesResponse.attribute({isList: true, isRequired: false}),
     args: {
-      initiatingMemberId: GraphqlType.id({isRequired: true}),
-      invitedMemberIds: GraphqlType.id({isList: true, isRequired: true}),
-      name: GraphqlType.string({isRequired: true}), 
-      adminIds: GraphqlType.id({isList: true, isRequired: true})
+      memberId: GraphqlType.id({isRequired: true}),
+      deviceId: GraphqlType.id({isRequired: true}),
     }
   })
 } 

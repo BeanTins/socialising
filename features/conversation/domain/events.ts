@@ -21,4 +21,14 @@ export class ConversationActivated {
       this.conversationId = conversationId
     }
 }
-    
+
+export class ConversationMessageSent {
+    conversationId: string
+    messageId: string
+
+    constructor(conversationId: string, messageId: string){
+        this.conversationId = conversationId
+        this.messageId = messageId
+    }
+}
+

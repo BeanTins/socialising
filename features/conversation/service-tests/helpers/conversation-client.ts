@@ -1,7 +1,9 @@
 interface SendMessageParameters{
-  deviceId: string
-  memberId: string
+  senderDeviceId: string
+  senderMemberId: string
   message: string
+  recipientDeviceId: string
+  recipientMemberId: string
   conversationId: string
   idToken: string | undefined
 }
@@ -135,19 +137,6 @@ export class ConversationClient
         }
       })
 
-      // recipientDeviceId: GraphqlType.string(),
-      //           encryptedMessage: GraphqlType.string() 
-
-      // returnType: GraphqlType.id({isRequired: false}),
-      // args: {
-      //   messageEncryptions: DeviceMessage.attribute({isRequired: true, isList: true})
-      // }
-  
-      // input DeviceMessage {
-      //   recipientDeviceId: String
-      //   encryptedMessage: String
-      // }
-
       const SendMessageCommand = gql`
       mutation SendMessage($conversationId: ID!, $senderMemberId: ID!, $senderDeviceId: ID!, $messageEncryptions: [DeviceMessage!]) {
         sendMessage(conversationId: $conversationId, senderMemberId: $senderMemberId, senderDeviceId: $senderDeviceId, messageEncryptions: $messageEncryptions)
@@ -156,11 +145,10 @@ export class ConversationClient
       
       const variables = {
         conversationId: parameters.conversationId,
-        senderMemberId: parameters.memberId,
-        senderDeviceId: parameters.deviceId,
-        messageEncryptions: [{recipientDeviceId: parameters.deviceId, encryptedMessage: parameters.message}]
+        senderMemberId: parameters.senderMemberId,
+        senderDeviceId: parameters.senderDeviceId,
+        messageEncryptions: [{recipientDeviceId: parameters.recipientDeviceId, recipientMemberId: parameters.recipientMemberId, encryptedMessage: parameters.message}]
       }
-      console.log(variables)
 
       try
       {

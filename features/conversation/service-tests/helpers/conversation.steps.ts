@@ -9,11 +9,11 @@ import { ConversationsAccessor } from "./conversations-accessor"
 import { EventListenerClient } from "./event-listener-client"
 import { ValidateConnectionsRequestListenerClient } from "./validate-connections-request-listener-client"
 import { ValidateConnectionsResponseFakeClient } from "./validate-connections-response-fake-client"
-import { ConversationActivated,ConversationCreated } from "../../domain/events"
+import { ConversationActivated,ConversationCreated, ConversationMessageSent } from "../../domain/events"
 import { MemberDevicesProjectionAccessor } from "./member-devices-projection-accessor"
+import { MemberMessagesProjectionAccessor } from "./member-messages-projection-accessor"
 import { v4 as uuidv4 } from "uuid"
 import { MessagesAccessor } from "./messages-accessor"
-import { TestEventPublisher } from "./test-event-publisher"
 
 const AWS_REGION = "us-east-1"
 
@@ -33,9 +33,9 @@ let validateResponse: boolean
 let conversationId: string
 let deviceName: string
 let memberDevicesProjection: MemberDevicesProjectionAccessor 
+let memberMessagesProjection: MemberMessagesProjectionAccessor 
 let membershipEventBusFakeArn: string
 let messages: MessagesAccessor
-let testEventPusblisher: TestEventPublisher
 
 beforeAll(async()=> {
 
@@ -73,7 +73,9 @@ beforeAll(async()=> {
       tableName: testEnvVarSetup.resolveVariable("MemberDevicesProjectionName")
     })
 
-    testEventPusblisher = new TestEventPublisher(AWS_REGION)
+    memberMessagesProjection = new MemberMessagesProjectionAccessor(AWS_REGION, {
+      tableName: testEnvVarSetup.resolveVariable("MemberMessagesProjectionName")
+    })
 
     membershipEventBusFakeArn = testEnvVarSetup.resolveVariable("MembershipEventBusFakeArn")
 
@@ -116,8 +118,8 @@ beforeEach(async () => {
     eventListener.clear(),
     validateConnectionsRequestListener.clear(),
     validateConnectionsResponse.clear(),
-
     memberDevicesProjection.clear(),
+    memberMessagesProjection.clear(),
     messages.clear()
    ])
    jest.setTimeout(getTestTimeout(currentTestName))
@@ -207,13 +209,16 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
     
   })
 
-  when(/(\w+)'s (\w+) sends the message "(.+)"/, async (sender: string, deviceName: string, message: string) => {
+  when(/(\w+)'s (\w+) sends the message "(.+)" to (\w+)'s (\w+)/, 
+  async (sender: string, senderDevice: string, message: string, receiver: string, receiverDevice: string) => {
 
     const idToken = await memberCredentials.requestIdToken(firstParticipant.email, "passw0rd")
 
     response = await client.sendMessage(
-      {memberId: firstParticipant.memberId, 
-       deviceId: firstParticipant.idForDevice(deviceName)!, 
+      {senderMemberId: firstParticipant.memberId, 
+       senderDeviceId: firstParticipant.idForDevice(senderDevice)!, 
+       recipientMemberId: secondParticipant.memberId,
+       recipientDeviceId: secondParticipant.idForDevice(receiverDevice)!,
        conversationId: conversationId, 
        message,
        idToken: idToken})
@@ -273,16 +278,32 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
 
   then(/the message is accepted/, async () => {
     expect(response.result).toBe(Result.Succeeded)
-    // message is stored
+    const messageId = await conversations.waitForMessage(conversationId)
+    expect(messageId).toBeDefined()
+
+    expect(await messages.waitForMessage(messageId!)).toBe(true)
+    await expectMessageSentEvent(conversationId, messageId!)
+    expect(await memberMessagesProjection.waitForMessagesToBeStored(firstParticipant.memberId, [messageId!])).toBe(true)
+    expect(await memberMessagesProjection.waitForMessagesToBeStored(secondParticipant.memberId, [messageId!])).toBe(true)
   })
 
 }
 
 async function expectValidateConnectionsRequest(conversationId: string) {
-  const request = JSON.parse(await validateConnectionsRequestListener.waitForRequest())
+  const request = JSON.parse(await validateConnectionsRequestListener.waitForRequest(conversationId))
+  expect(request).toBeDefined()
   expect(request.correlationId).toBe(conversationId)
   expect(request.initiatingMemberId).toBe(firstParticipant.memberId)
   expect(request.requestedConnectionMemberIds).toEqual([secondParticipant.memberId])
+}
+
+async function expectMessageSentEvent(conversationId: string, messageId: string) {
+  const event = await eventListener.waitForEventType("ConversationMessageSent")
+
+  const eventData: ConversationMessageSent = <ConversationMessageSent>event!.data
+
+  expect(eventData.conversationId).toBe(conversationId)
+  expect(eventData.messageId).toBe(messageId)
 }
 
 async function expectPublishedCreatedEvent(conversationId: string) {

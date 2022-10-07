@@ -54,7 +54,8 @@ export class ConversationsAccessor {
           
           try
           {
-              await dynamoDB.send(new DeleteCommand(record))
+            const result = await dynamoDB.send(new DeleteCommand(record))
+            logger.verbose("Delete conversation - " + JSON.stringify(result))
           }
           catch(error)
           {
@@ -116,6 +117,28 @@ export class ConversationsAccessor {
 
       return matched
     })
+  }
+
+  async waitForMessage(conversationId: string, retries: number = 3, retryWaitInMillisecs = 500)
+  {
+    let messageId
+    const messageFound = await this.waitForConversation(conversationId, retries, retryWaitInMillisecs, (scanResult)=>{
+      let matched = false
+      if((scanResult.Count != null) && scanResult.Count == 1)
+      {
+        const conversation = scanResult.Items![0]
+
+        if (conversation.messages.length > 0)
+        {
+          messageId = conversation.messages[conversation.messages.length - 1]
+          matched = true
+        }
+      }
+
+      return matched
+    })
+    
+    return messageId
   }
 
   async waitForConversation(conversationId: string, retries: number = 3, retryWaitInMillisecs = 500, conditionFunction: ConditionFunction)

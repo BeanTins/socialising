@@ -50,38 +50,53 @@ export class ValidateConnectionsRequestListenerClient {
     return this.url
   }
 
-  async waitForRequest()
+  async waitForRequest(correlationId: string)
   {
+    let matchFound: boolean = false
+    let retry = 0
     let request: any
     const url = await this.getUrl()
 
-    try {
-      const params = {
-        QueueUrl: url,
-        WaitTimeSeconds: 10
-      }   
-      const command = new ReceiveMessageCommand(params)
-
-      logger.verbose("validate connections request listener queue command - " + JSON.stringify(command))
-
-      let response: ReceiveMessageResult
-      response = await this.sqsClient.send(command)
-  
-      logger.verbose("validate connections request listener queue response - " + JSON.stringify(response))
-
-      if (response.Messages != undefined && response.Messages.length > 0)
-      {
-        const message = response.Messages[0]
-
-        request = message.Body!
-
-        await this.deleteMessage(message.ReceiptHandle!)
-      }
-    }
-    catch(error)
+    while(!matchFound && (retry < 3))
     {
-      logger.error("Failed to receive event -  " + error)
-      throw error
+      try {
+        const params = {
+          QueueUrl: url,
+          MaxNumberOfMessages: 10,
+          WaitTimeSeconds: Math.pow(2, retry)
+        }   
+        const command = new ReceiveMessageCommand(params)
+
+        logger.verbose("validate connections request listener queue command - " + JSON.stringify(command))
+
+        let response: ReceiveMessageResult
+        response = await this.sqsClient.send(command)
+    
+        logger.verbose("validate connections request listener queue response - " + JSON.stringify(response))
+
+        if (response.Messages != undefined && response.Messages.length > 0)
+        {
+          const message = response.Messages[0]
+
+          if(correlationId == JSON.parse(message.Body!).correlationId)
+          {
+            request = message.Body!
+            matchFound = true
+          }
+          else
+          {
+            logger.verbose("skip validate connection request - " + message.Body)
+          }
+
+          await this.deleteMessage(message.ReceiptHandle!)
+        }
+      }
+      catch(error)
+      {
+        logger.error("Failed to receive event -  " + error)
+        throw error
+      }
+      retry++
     }
 
     return request
@@ -94,7 +109,8 @@ export class ValidateConnectionsRequestListenerClient {
     try {
       const params = {
         QueueUrl: url,
-        MaxNumberOfMessages: 10
+        MaxNumberOfMessages: 10,
+        WaitTimeSeconds: 2
       }   
       const command = new ReceiveMessageCommand(params)
     
@@ -103,19 +119,20 @@ export class ValidateConnectionsRequestListenerClient {
       {
         response = await this.sqsClient.send(command)
   
+        logger.verbose("validation request events - " + JSON.stringify(response))
         if (response.Messages != undefined && response.Messages.length > 0)
         {
           for (const message of response.Messages)
           {
             await this.deleteMessage(message.ReceiptHandle!)
-            logger.verbose("Deleted event - " + JSON.stringify(message))
+            logger.verbose("Deleting validation request event - " + JSON.stringify(message))
           }
         }
       } while((response.Messages != undefined) && (response.Messages.length < 10))
     }
     catch(error)
     {
-      logger.error("Failed to receive event -  " + error)
+      logger.error("Failed to receive validation request event -  " + error)
       throw error
     }
   }  

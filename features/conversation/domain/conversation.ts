@@ -23,13 +23,16 @@ export enum State{
 
 export interface EncryptedDeviceMessage{
   recipientDeviceId: string
+  recipientMemberId: string
   message: string
 }
 
 export type MessageEncryptions = EncryptedDeviceMessage[]
 
-interface Message{
+export interface Message{
   id: string
+  senderMemberId: string
+  senderDeviceId: string
   date: number
   encryptions: MessageEncryptions
 }
@@ -110,6 +113,8 @@ export class Conversation extends Entity {
     const messageId = uuidv4()
      this.newMessage = {
        id: messageId,
+       senderMemberId: senderMemberId,
+       senderDeviceId: senderDeviceId,
        date: Date.now(),
        encryptions: messageEncryptions
       }

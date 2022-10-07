@@ -7,32 +7,37 @@ import * as path from "path"
 import {EventBus, Rule} from "aws-cdk-lib/aws-events"
 import {LambdaFunction} from "aws-cdk-lib/aws-events-targets"
 
-interface MemberDevicesProjectionHandlerStackProps extends StackProps {
-  memberDevicesProjectionTableName: string
+interface MemberMessagesProjectionHandlerStackProps extends StackProps {
+  memberMessagesProjectionTableName: string
+  messagesTableName: string
   membershipEventBusArn: string
 }
 
-export class MemberDevicesProjectionHandler extends Stack {
+export class MemberMessagesProjectionHandler extends Stack {
 
   public readonly lambda: Function
 
-  constructor(scope: Construct, id: string, props: MemberDevicesProjectionHandlerStackProps) {
+  constructor(scope: Construct, id: string, props: MemberMessagesProjectionHandlerStackProps) {
     super(scope, id, props)
 
-    this.lambda = new NodejsFunction(this, "MemberDevicesProjectionHandlerFunction", {
-      environment: {MemberDevicesProjectionTableName: props.memberDevicesProjectionTableName},
+    this.lambda = new NodejsFunction(this, "MemberMessagesProjectionHandlerFunction", {
+      environment: 
+      {  
+        MemberMessagesProjectionTableName: props.memberMessagesProjectionTableName,
+        MessagesTableName: props.messagesTableName
+      },
       memorySize: 1024,
       timeout: Duration.seconds(5),
       runtime: Runtime.NODEJS_16_X,
       handler: "lambdaHandler",
-      entry: path.join(__dirname, "member-devices-projection-handler.ts"),
+      entry: path.join(__dirname, "member-messages-projection-handler.ts"),
     })
 
     const membershipEventBus = EventBus.fromEventBusArn(this, "Membership-EventBus", props.membershipEventBusArn)
 
-    const rule = new Rule(this, "MemberDeviceProjectionHandlerLambdaRule", {
+    const rule = new Rule(this, "MemberMessagesProjectionHandlerLambdaRule", {
         eventBus: membershipEventBus,
-        eventPattern: {detailType: ["MemberActivatedEvent"]},
+        eventPattern: {detailType: ["ConversationMessageSent"]},
         targets: [new LambdaFunction(this.lambda)]
       })    
    }

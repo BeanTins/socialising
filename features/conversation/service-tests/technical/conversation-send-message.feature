@@ -8,3 +8,5 @@ Given a new member Jock using a iPhone
 When they are activated
 Then in future they are recognised
 
+
+

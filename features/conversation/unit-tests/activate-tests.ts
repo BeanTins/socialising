@@ -23,14 +23,13 @@ test("conversation activate validated updates domain object", async () => {
 
   process.env.ConversationsTableName = "ConversationsTable1"
 
-  dynamoMock.on(GetCommand).resolves({Item: {
+  givenConversation({
     id: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
     name: "",
     initiatingMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
     participantIds: new Set(["49070739-630c-2223-c8a5-2e6c9270fdb2", "79070739-630c-4423-c8a5-2e6c9270fdb2"]),
     adminIds: new Set([]),
-    state: "Created"}})
-
+    state: "Created"})
 
   await whenConversationActivate("1234", true)
 
@@ -59,33 +58,9 @@ test("conversation activate fails if conversation is unknown", async () => {
 })
 
 
-test("conversation activate validated raises event", async () => {
-
-  process.env.ConversationsTableName = "ConversationsTable1"
-  process.env.EventBusName = "SocialisingEventBus"
-
-  givenConversation({
-    id: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
-    initiatingMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
-    participantIds: new Set(["49070739-630c-2223-c8a5-2e6c9270fdb2", "79070739-630c-4423-c8a5-2e6c9270fdb2"]),
-    adminIds: new Set([]),
-    state: "Created"})
-
-  await whenConversationActivate("1234", true)
-
-  thenSentEventContains({Detail: JSON.stringify({
-    conversationId: "1234"
-    }),
-    DetailType: "ConversationActivated",
-    EventBusName: "SocialisingEventBus",
-    Source: "socialising.beantins.com"
-  })
-
-})
-
 test("conversation activate fails if conversation is invalid", async () => {
 
-  dynamoMock.on(GetCommand).resolves({Item: undefined})
+  givenConversation(undefined)
 
   await whenConversationActivate("1234", true)
 

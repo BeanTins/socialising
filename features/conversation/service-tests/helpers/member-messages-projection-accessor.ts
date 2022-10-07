@@ -1,20 +1,23 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
-import { DynamoDBDocumentClient, ScanCommand, DeleteCommand, PutCommand, ScanCommandOutput } from "@aws-sdk/lib-dynamodb"
+import { DynamoDBDocumentClient, ScanCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb"
 import logger from "./service-test-logger"
 
-interface MessagesParameters{
+interface MemberMessagesProjectionParameters{
   tableName: string
 }
 
-export class MessagesAccessor {
+export class MemberMessagesProjectionAccessor {
   
   private dynamoDB: DynamoDBDocumentClient
   private tableName: string
 
-  constructor(region: string, parameters: MessagesParameters)
+  constructor(region: string, parameters: MemberMessagesProjectionParameters)
   {
     const client = new DynamoDBClient({region: region})
-    this.dynamoDB = DynamoDBDocumentClient.from(client, {marshallOptions: {convertEmptyValues: true, convertClassInstanceToMap:true}})
+    this.dynamoDB = DynamoDBDocumentClient.from(client, {marshallOptions: 
+      {convertEmptyValues: true, 
+        convertClassInstanceToMap:true,
+        removeUndefinedValues:true}})
     this.tableName = parameters.tableName
   }
 
@@ -33,10 +36,10 @@ export class MessagesAccessor {
   
           var record = {
               TableName: tableName,
-              Key: {"id": item["id"]}
+              Key: {"memberId": item["memberId"]}
           };
   
-          logger.verbose("Clearing messages - " + JSON.stringify(record))
+          logger.verbose("Clearing member messages projection - " + JSON.stringify(record))
           
           try
           {
@@ -50,26 +53,32 @@ export class MessagesAccessor {
     }
   } 
 
-  async waitForMessage(messageId: string, retries: number = 3, retryWaitInMillisecs = 500)
+  async waitForMessagesToBeStored(memberId: string, messageIds: string[], retries: number = 3, retryWaitInMillisecs = 500)
   {
-    let messageFound: boolean = false
+    let messagesFound = false
     var params = {
-      FilterExpression: "#id = :id",
+      FilterExpression: "#memberId = :memberId",
       ExpressionAttributeValues: {
-        ":id": messageId,
+        ":memberId": memberId,
       },
       ExpressionAttributeNames: 
-       { "#id": "id" },
+       { "#memberId": "memberId" },
       TableName: this.tableName
     }
     logger.verbose(JSON.stringify(params))
     try{
       for (let retry = 0; retry < retries; retry++) {
-        let scanResult = await this.dynamoDB.send(new ScanCommand(params))
-        logger.verbose("wait for message to be added - " + JSON.stringify(scanResult))
-        if((scanResult.Count != null) && scanResult.Count == 1)
+        let result = await this.dynamoDB.send(new ScanCommand(params))
+        logger.verbose("wait for member messages to be added/updated - " + JSON.stringify(result))
+        if((result.Count != null) && (result.Count == 1))
         {
-          messageFound = true
+          const storedMessageIds = result.Items![0]["messageIds"]
+
+          if (messageIds.every(e => storedMessageIds.includes(e)))
+          {
+            messagesFound = true
+            break
+          }
         }
         await new Promise(r => setTimeout(r, retryWaitInMillisecs * Math.pow(2, retry)))
       }
@@ -78,7 +87,7 @@ export class MessagesAccessor {
       logger.error(err)
     }
  
-    return messageFound
+    return messagesFound
   }
 
 }
