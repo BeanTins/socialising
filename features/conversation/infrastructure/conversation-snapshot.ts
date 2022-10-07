@@ -32,7 +32,7 @@ export class ConversationSnapshot implements ConversationSnapshotAttributes{
 
   messages: string[]
 
-  newMessage: string|undefined
+  newMessage: undefined
 
   public static createFromRawData(snapshot: Record<string, any>)
   {

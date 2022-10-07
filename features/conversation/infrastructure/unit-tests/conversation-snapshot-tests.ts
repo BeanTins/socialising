@@ -55,6 +55,29 @@ test("conversation to snapshot with null name", async() => {
   expect(snapshot.name).toBe("")
 })
 
+test("conversation to snapshot makes non-persisted properties as undefined", async() => {
+  
+  var conversation: Conversation = Conversation.create("1234", new Set(["1234", "4321"]), null, new Set(["1234"]))
+
+  conversation["newMessage"] = {
+    id: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
+    senderMemberId: "ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21",
+    senderDeviceId: "c834163e-502b-4e63-8cab-294bf13a560b",
+    date: 0,
+    encryptions: [
+      {recipientDeviceId: "5b74b221-1be7-4c18-91ac-0121ae0cee77",
+       recipientMemberId: "eda0eabe-6c2b-474f-9dde-d6a67232721a",
+       message: "garbled encryption"},
+       {recipientDeviceId: "5a072b0f-2d69-4809-acb7-f408cafed0db",
+       recipientMemberId: "6f4386fe-bbff-4684-b0f7-698600ba8eb9",
+       message: "garbled encryption"},
+    ]
+  }
+  const snapshot = ConversationSnapshot.createFromConversation(conversation)
+
+  expect(snapshot.newMessage).toBeUndefined()
+})
+
 test("raw data to snapshot", async() => {
   
   const snapshot = ConversationSnapshot.createFromRawData({
@@ -89,11 +112,15 @@ test("snapshot has identical set of properties to conversation", async() => {
   const malformedMemberSnapshot = new ConversationSnapshot()
   const snapshot = ConversationSnapshot.createFromConversation(conversation)
 
-  const memberKeys = Object.keys(conversation) as Array<keyof Conversation>
-  const memberSnapshotKeys = Object.keys(snapshot) as Array<keyof ConversationSnapshot>
+  const memberKeys = Object.keys(conversation) as Array<string>
+  const memberSnapshotKeys = Object.keys(snapshot) as Array<string>
+  const snapshotWithoutUndefinedProperties = memberSnapshotKeys.filter(function(value, index, arr){ 
+    return (value != "newMessage")
+  })
+
   const malformedMemberSnapshotKeys = Object.keys(malformedMemberSnapshot) as Array<keyof MalformedConversationMemberSnapshot>
 
-  expect(memberKeys).toEqual(memberSnapshotKeys)
+  expect(memberKeys).toEqual(snapshotWithoutUndefinedProperties)
   expect(memberSnapshotKeys).not.toEqual(malformedMemberSnapshotKeys)
 })
 

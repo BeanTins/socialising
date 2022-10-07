@@ -67,6 +67,59 @@ test("append message to sender and recipients member projection", async () => {
   })
 })
 
+test("only append message to sender and recipients member projection if not already done (idempotence)", async () => {
+
+  process.env.MemberMessagesProjectionTableName = "MemberMessages"
+  process.env.MessagesTableName = "MessagesTable"
+  givenMessage({
+    id: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
+    senderMemberId: "ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21",
+    senderDeviceId: "c834163e-502b-4e63-8cab-294bf13a560b",
+    date: 0,
+    encryptions: [
+      {recipientDeviceId: "5b74b221-1be7-4c18-91ac-0121ae0cee77",
+       recipientMemberId: "eda0eabe-6c2b-474f-9dde-d6a67232721a",
+       message: "garbled encryption"},
+       {recipientDeviceId: "5a072b0f-2d69-4809-acb7-f408cafed0db",
+       recipientMemberId: "6f4386fe-bbff-4684-b0f7-698600ba8eb9",
+       message: "garbled encryption"},
+    ]
+  })
+
+  givenMemberMessages(
+    {memberId: "ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21",
+      messageIds: ["09040739-830c-49d3-b8a5-1e6c9270fdb2"]
+    })
+
+  givenMemberMessages(
+    {memberId: "eda0eabe-6c2b-474f-9dde-d6a67232721a",
+     messageIds: ["47017043-ef04-46f7-b669-b8293ef04aff", "09040739-830c-49d3-b8a5-1e6c9270fdb2"]
+    })
+
+  givenMemberMessages(
+    {memberId: "6f4386fe-bbff-4684-b0f7-698600ba8eb9",
+      messageIds: []
+    })
+  
+  await whenMessageSent({
+      messageId: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
+      conversationId: "fdf73659-942f-4a95-8dde-6f5f95b608a8"})
+  
+  thenMemberMessages({
+    memberId: "eda0eabe-6c2b-474f-9dde-d6a67232721a",
+    messageIds: ["47017043-ef04-46f7-b669-b8293ef04aff","09040739-830c-49d3-b8a5-1e6c9270fdb2"]
+  })
+
+  thenMemberMessages({
+    memberId: "6f4386fe-bbff-4684-b0f7-698600ba8eb9",
+    messageIds: ["09040739-830c-49d3-b8a5-1e6c9270fdb2"]
+  })
+
+  thenMemberMessages({
+    memberId: "ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21",
+    messageIds: ["09040739-830c-49d3-b8a5-1e6c9270fdb2"]
+  })
+})
 
 interface MessageSent {
     conversationId: string
@@ -84,7 +137,7 @@ function givenMessage(message: Message)
     .on(GetCommand, {
       TableName: "MessagesTable",
       Key: {
-        messageId: message.id
+        id: message.id
       }
     }
     ).resolves({Item: message})
