@@ -10,7 +10,7 @@ const dynamoMock = mockClient(DynamoDBDocumentClient)
 
 beforeEach(() => {
     jest.clearAllMocks()
-
+    dynamoMock.reset()
 })
 
 test("append message to sender and recipients member projection", async () => {
@@ -105,18 +105,12 @@ test("only append message to sender and recipients member projection if not alre
       messageId: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
       conversationId: "fdf73659-942f-4a95-8dde-6f5f95b608a8"})
   
-  thenMemberMessages({
-    memberId: "eda0eabe-6c2b-474f-9dde-d6a67232721a",
-    messageIds: ["47017043-ef04-46f7-b669-b8293ef04aff","09040739-830c-49d3-b8a5-1e6c9270fdb2"]
-  })
+  thenMemberMessagesNotUpdated("ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21")
+
+  thenMemberMessagesNotUpdated("eda0eabe-6c2b-474f-9dde-d6a67232721a")
 
   thenMemberMessages({
     memberId: "6f4386fe-bbff-4684-b0f7-698600ba8eb9",
-    messageIds: ["09040739-830c-49d3-b8a5-1e6c9270fdb2"]
-  })
-
-  thenMemberMessages({
-    memberId: "ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21",
     messageIds: ["09040739-830c-49d3-b8a5-1e6c9270fdb2"]
   })
 })
@@ -169,12 +163,14 @@ async function whenMessageSent(messageSent: MessageSent){
 
 function thenMemberMessages(memberMessages: MemberMessages){
   expect(dynamoMock.commandCalls(PutCommand, {Item:{memberId: memberMessages.memberId}})[0].args[0].input).toEqual(
-    expect.objectContaining({
-      Item: memberMessages,
-      TableName: "MemberMessages"
-    })
+    {  Item: memberMessages,
+     TableName: "MemberMessages"
+    }
   )
 }
 
+function thenMemberMessagesNotUpdated(memberId: string){
+  expect(dynamoMock.commandCalls(PutCommand, {Item:{memberId: memberId}}).length).toBe(0)
+}
 
   

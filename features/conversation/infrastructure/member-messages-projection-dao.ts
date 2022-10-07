@@ -32,20 +32,26 @@ export class MemberMessagesProjectionDAO
           memberMessages = result.Item["messageIds"]
         }
 
-        memberMessages.push(messageId)
-
-        await this.dynamoDB.send(new PutCommand({
-          TableName: this.tableName,
-          Item: {
-            memberId : memberId,
-            messageIds : memberMessages
-          }
-        }))
+        if(!this.isAppendedAlready(memberMessages, messageId))
+        {
+          memberMessages.push(messageId)
+          await this.dynamoDB.send(new PutCommand({
+            TableName: this.tableName,
+            Item: {
+              memberId : memberId,
+              messageIds : memberMessages
+            }
+          }))
+        }
       }
     }
     catch(err){
       logger.error("member messages projection add failed with " + JSON.stringify(err))
     }
+  }
+
+  private isAppendedAlready(memberMessages: string[], messageId: string) {
+    return (memberMessages.find(message => message == messageId))
   }
 }
 
