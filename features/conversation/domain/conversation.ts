@@ -97,7 +97,7 @@ export class Conversation extends Entity {
   {
     if (this.state != "Activated")
     {
-      throw new MessageSendWithUnactivatedConversation(this.id)
+      throw new UnactivatedConversation(this.id)
     }
 
     if (!this.participantIds.has(senderMemberId))
@@ -109,6 +109,9 @@ export class Conversation extends Entity {
     {
       throw new SenderDeviceNotInConversation(senderDeviceId, this.id)
     }
+
+    this.validateMessageMembers(senderMemberId, messageEncryptions)
+    this.validateMessageDevices(senderDeviceId, messageEncryptions, conversationDevices)
     
     const messageId = uuidv4()
      this.newMessage = {
@@ -123,7 +126,41 @@ export class Conversation extends Entity {
      return messageId
   }
 
+  private validateMessageMembers(senderMemberId: string, messageEncryptions: MessageEncryptions) {
+    const messageMembers = new Set<string>()
 
+    messageMembers.add(senderMemberId)
+
+    for (const messageEncryption of messageEncryptions) {
+      messageMembers.add(messageEncryption.recipientMemberId)
+    }
+
+    const unrecognisedMemberIds = [...messageMembers].filter((x) => !this.participantIds.has(x))
+    const missingMemberIds = [...this.participantIds].filter((x) => !messageMembers.has(x))
+
+    if ((missingMemberIds.length > 0) ||
+      (unrecognisedMemberIds.length > 0)) {
+      throw new ReceivingMemberMessageSetMismatch(this.id, missingMemberIds, unrecognisedMemberIds)
+    }
+  }
+
+  private validateMessageDevices(senderDeviceId: string, messageEncryptions: MessageEncryptions, conversationDevices: Set<string>) {
+    const messageDevices = new Set<string>()
+
+    messageDevices.add(senderDeviceId)
+
+    for (const messageEncryption of messageEncryptions) {
+      messageDevices.add(messageEncryption.recipientDeviceId)
+    }
+
+    const unrecognisedDeviceIds = [...messageDevices].filter((x) => !conversationDevices.has(x))
+    const missingDeviceIds = [...conversationDevices].filter((x) => !messageDevices.has(x))
+
+    if ((missingDeviceIds.length > 0) ||
+      (unrecognisedDeviceIds.length > 0)) {
+      throw new ReceivingDeviceMessageSetMismatch(this.id, missingDeviceIds, unrecognisedDeviceIds)
+    }
+  }
 
 }
 
@@ -159,7 +196,7 @@ export class BelowMinimumParticipants extends Error
   }
 }
 
-export class MessageSendWithUnactivatedConversation extends Error 
+export class UnactivatedConversation extends Error 
 {
   constructor (conversationId: string)
   {
@@ -180,5 +217,23 @@ export class SenderMemberNotInConversation extends Error
   constructor (senderMemberId: string, conversationId: string)
   {
     super("Sender member " + senderMemberId + " not in conversation " + conversationId)
+  }
+}
+
+export class ReceivingMemberMessageSetMismatch extends Error 
+{
+  constructor (conversationId: string, missingMemberIds: string[], unrecognisedMemberIds: string[])
+  {
+    super("Receiving message member set mismatch in conversation " + conversationId + ", missing members: " + 
+    JSON.stringify(missingMemberIds) + ", unrecognised members: " + JSON.stringify(unrecognisedMemberIds))
+  }
+}
+
+export class ReceivingDeviceMessageSetMismatch extends Error 
+{
+  constructor (conversationId: string, missingDevices: string[], unrecognisedDevices: string[])
+  {
+    super("Receiving message device set mismatch in conversation " + conversationId + ", missing devices: " + 
+    JSON.stringify(missingDevices) + ", unrecognised devices: " + JSON.stringify(unrecognisedDevices))
   }
 }

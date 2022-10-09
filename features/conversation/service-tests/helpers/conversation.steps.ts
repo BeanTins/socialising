@@ -209,6 +209,40 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
     
   })
 
+  given(/an unactivated conversation between (\w+)'s (\w+) and (\w+)'s (\w+)/, 
+      async (firstParticipantName: string, 
+             firstParticipantDevice: string,
+             secondParticipantName: string,
+             secondParticipantDevice: string) => {
+
+    firstParticipant.withName(firstParticipantName)
+    firstParticipant.withDevice(firstParticipantDevice)
+    secondParticipant.withName(secondParticipantName)
+    secondParticipant.withDevice(secondParticipantDevice)
+    await firstParticipant.activated()
+    await secondParticipant.activated()
+    conversationId = uuidv4() 
+
+    invitedMemberIds = [secondParticipant.memberId]
+    
+    Promise.all([
+      await memberDevicesProjection.waitForDeviceToBeStored(firstParticipant.memberId, firstParticipant.idForDevice(firstParticipantDevice)!),
+      await memberDevicesProjection.waitForDeviceToBeStored(secondParticipant.memberId, secondParticipant.idForDevice(secondParticipantDevice)!),   
+      await conversations.add({
+        id: conversationId,
+        initiatingMemberId: firstParticipant.memberId,
+        name: "",
+        state: "Created",
+        messages: [],
+        participantIds: new Set([firstParticipant.memberId, secondParticipant.memberId]),
+        adminIds: new Set([])
+      }),
+      await firstParticipant.authenticatedWithPassword("passw0rd")
+    ])
+    
+    expectedFailureResponse = "Send Message Error: UnactivatedConversation"
+  })
+
   when(/(\w+)'s (\w+) sends the message "(.+)" to (\w+)'s (\w+)/, 
   async (sender: string, senderDevice: string, message: string, receiver: string, receiverDevice: string) => {
 
@@ -274,6 +308,11 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
   then(/in future they are recognised/, async() => {
 
     expect(await memberDevicesProjection.waitForDeviceToBeStored(firstParticipant.memberId, firstParticipant.idForDevice(deviceName)!)).toBe(true)
+  })
+
+  then(/the message is rejected/, async () => {
+    expect(response.result).toBe(Result.Failed)
+    expect(response.message).toBe(expectedFailureResponse)
   })
 
   then(/the message is accepted/, async () => {

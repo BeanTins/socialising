@@ -36,8 +36,6 @@ export const conversationSendMessageGraphQLField: GraphQLField = {
 
 export const lambdaHandler = async (event: AppSyncResolverEvent<SendMessageEvent>, context: Context): Promise<any|Error> => { 
   
-  logger.verbose("incoming message - " + JSON.stringify(event))
-
   const command = new SendMessageCommand(event.arguments.senderMemberId, 
                                          event.arguments.senderDeviceId, 
                                          event.arguments.conversationId,
@@ -85,7 +83,7 @@ export class SendMessageCommandHandler {
     catch(error)
     {
       logger.error("conversation send message failed for command: " + JSON.stringify(command, (key, value) => value instanceof Set ? [...value]: value) + " with " + error)
-      throw error
+      throw Error("Send Message Error: " + error.constructor.name)
     }
 
     return messageId

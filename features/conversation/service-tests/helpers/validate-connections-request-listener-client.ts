@@ -57,7 +57,7 @@ export class ValidateConnectionsRequestListenerClient {
     let request: any
     const url = await this.getUrl()
 
-    while(!matchFound && (retry < 3))
+    while(!matchFound && (retry < 4))
     {
       try {
         const params = {

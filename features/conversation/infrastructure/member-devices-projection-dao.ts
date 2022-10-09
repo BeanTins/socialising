@@ -70,11 +70,8 @@ export class MemberDevicesProjectionDAO
 
       if (result.Responses != undefined)
       {
-
-        let deviceList: string[] = []
         for (const response of result.Responses[this.tableName])
         {
-          deviceList.concat(Object.values(response)) 
           devices = devices.concat(response["deviceIds"])
         }
       }
