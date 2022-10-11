@@ -1,5 +1,5 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
-import { DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb"
+import { DynamoDBClient, ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb"
+import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb"
 import logger from "./lambda-logger"
 
 export class MemberMessagesProjectionDAO
@@ -18,36 +18,85 @@ export class MemberMessagesProjectionDAO
     try{
       for (const memberId of memberIds)
       {
-        let memberMessages: string[] = []
+        const retryLimit = 3
+        let messageAppended = false
+        let updateRetries = 0
 
-        const result =  await this.dynamoDB.send(new GetCommand({
-          TableName: this.tableName,
-          Key: {
-            memberId: memberId
-          }
-        }))
-
-        if (result.Item != undefined)
+        while(!messageAppended && (updateRetries < retryLimit))
         {
-          memberMessages = result.Item["messageIds"]
+          try{
+
+            let memberMessages: string[] = []
+            let currentVersion = 0
+            const result =  await this.dynamoDB.send(new GetCommand({
+              TableName: this.tableName,
+              Key: {
+                memberId: memberId
+              }
+            }))
+
+            if (result.Item != undefined)
+            {
+              memberMessages = result.Item["messageIds"]
+              currentVersion = result.Item["version"]
+            }
+
+            if(!this.isAppendedAlready(memberMessages, messageId)) // idempotence
+            {
+              const result =  await this.updateMemberMessages(memberId, messageId, currentVersion)
+            }
+            messageAppended = true
+          }
+          catch(error)
+          {
+            if (error instanceof ConditionalCheckFailedException)
+            {
+              logger.verbose("optimistic locking for member " + memberId + " with message " + messageId)
+              updateRetries++
+            }
+            else
+            {
+              throw error
+            }
+          }
         }
 
-        if(!this.isAppendedAlready(memberMessages, messageId))
+        if (updateRetries == retryLimit)
         {
-          memberMessages.push(messageId)
-          await this.dynamoDB.send(new PutCommand({
-            TableName: this.tableName,
-            Item: {
-              memberId : memberId,
-              messageIds : memberMessages
-            }
-          }))
+          logger.error("member " + memberId + " exceeded optimistic lock retries for message " + messageId)
         }
       }
     }
     catch(err){
+      console.log(err)
       logger.error("member messages projection add failed with " + JSON.stringify(err))
     }
+  }
+
+  private async updateMemberMessages(memberId: string, messageId: string, currentVersion: number) {
+
+    const versionIncrement = 1
+    const initialVersionNumber = 0
+
+    return await this.dynamoDB.send(new UpdateCommand({
+      TableName: this.tableName,
+      Key: {
+        memberId: memberId
+      },
+      UpdateExpression: 'SET #version = if_not_exists(#version, :initialVersionNumber) + :versionIncrement, #messageIds = list_append(if_not_exists(#messageIds, :emptyList), :newMessage)',
+      ExpressionAttributeNames: {
+        '#messageIds': 'messageIds',
+        '#version': 'version',
+      },
+      ExpressionAttributeValues: {
+        ':newMessage': [messageId],
+        ':emptyList': [],
+        ":initialVersionNumber": initialVersionNumber,
+        ":versionIncrement": versionIncrement,
+        ":currentVersion": currentVersion
+      },
+      ConditionExpression: "attribute_not_exists(#version) or #version = :currentVersion"
+    }))
   }
 
   private isAppendedAlready(memberMessages: string[], messageId: string) {

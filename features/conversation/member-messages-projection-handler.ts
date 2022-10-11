@@ -32,7 +32,6 @@ class NotificationHandler
   {
     const memberIds = await this.messages.getMembersInMessage(event.messageId)
 
-    console.log("memberIds" + JSON.stringify(memberIds))
     await this.memberMessagesProjection.appendMessageForMembers(event.messageId, memberIds)
   }
 }
