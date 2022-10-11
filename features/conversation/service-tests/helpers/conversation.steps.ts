@@ -25,6 +25,7 @@ let eventListener: EventListenerClient
 let firstParticipant: FakeMember
 let secondParticipant: FakeMember
 let response: Response
+let secondResponse: Response
 let invitedMemberIds: string[]
 let conversations: ConversationsAccessor
 let validateConnectionsRequestListener: ValidateConnectionsRequestListenerClient
@@ -258,6 +259,21 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
        idToken: idToken})
   })
 
+  when(/(\w+)'s (\w+) sends another message "(.+)" to (\w+)'s (\w+)/, 
+  async (sender: string, senderDevice: string, message: string, receiver: string, receiverDevice: string) => {
+
+    const idToken = await memberCredentials.requestIdToken(firstParticipant.email, "passw0rd")
+
+    secondResponse = await client.sendMessage(
+      {senderMemberId: firstParticipant.memberId, 
+       senderDeviceId: firstParticipant.idForDevice(senderDevice)!, 
+       recipientMemberId: secondParticipant.memberId,
+       recipientDeviceId: secondParticipant.idForDevice(receiverDevice)!,
+       conversationId: conversationId, 
+       message,
+       idToken: idToken})
+  })
+
   when(/a request is made to create the conversation/, async () => {
 
     const idToken = await memberCredentials.requestIdToken(firstParticipant.email, "passw0rd")
@@ -324,6 +340,20 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
     await expectMessageSentEvent(conversationId, messageId!)
     expect(await memberMessagesProjection.waitForMessagesToBeStored(firstParticipant.memberId, [messageId!])).toBe(true)
     expect(await memberMessagesProjection.waitForMessagesToBeStored(secondParticipant.memberId, [messageId!])).toBe(true)
+  })
+
+  then(/the messages are accepted/, async () => {
+    expect(response.result).toBe(Result.Succeeded)
+    const messageId = await conversations.waitForMessage(conversationId)
+    expect(messageId).toBeDefined()
+
+    expect(await messages.waitForMessage(messageId!)).toBe(true)
+
+    expect(response.result).toBe(Result.Succeeded)
+    const secondMessageId = await conversations.waitForMessage(conversationId)
+    expect(secondMessageId).toBeDefined()
+
+    expect(await messages.waitForMessage(secondMessageId!)).toBe(true)
   })
 
 }
