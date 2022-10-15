@@ -63,14 +63,14 @@ test("conversation to snapshot makes non-persisted properties as undefined", asy
     id: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
     senderMemberId: "ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21",
     senderDeviceId: "c834163e-502b-4e63-8cab-294bf13a560b",
-    date: 0,
+    dateTime: 0,
     encryptions: [
       {recipientDeviceId: "5b74b221-1be7-4c18-91ac-0121ae0cee77",
        recipientMemberId: "eda0eabe-6c2b-474f-9dde-d6a67232721a",
-       message: "garbled encryption"},
+       encryptedMessage: "garbled encryption"},
        {recipientDeviceId: "5a072b0f-2d69-4809-acb7-f408cafed0db",
        recipientMemberId: "6f4386fe-bbff-4684-b0f7-698600ba8eb9",
-       message: "garbled encryption"},
+       encryptedMessage: "garbled encryption"},
     ]
   }
   const snapshot = ConversationSnapshot.createFromConversation(conversation)

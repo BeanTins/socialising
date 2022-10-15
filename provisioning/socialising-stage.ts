@@ -116,11 +116,19 @@ export class SocialisingStage extends Stage implements Stage{
     this.conversationGraphQL.addType(LatestMessagesResponse)
     const latestMessagesLambda = this.conversationGraphQL.addField({
       resourceLabel: "ConversationLatestMessages",
-      functionEnvironment: {},
+      functionEnvironment:
+      {
+        MemberMessagesProjectionTableName: this.memberMessagesProjection.name,
+        MessagesTableName: this.messagesTable.name,        
+        MemberDevicesProjectionTableName: this.memberDevicesProjection.name,        
+      },
       functionSourceLocation: path.join(__dirname, "../features/conversation/latest-messages.ts"),
       field: conversationLatestMessagesGraphQLField})
 
     this.conversationGraphQL.addType(CreatedResponse)
+    this.memberDevicesProjection.grantAccessTo(latestMessagesLambda.grantPrincipal)
+    this.memberMessagesProjection.grantAccessTo(latestMessagesLambda.grantPrincipal)
+    this.messagesTable.grantAccessTo(latestMessagesLambda.grantPrincipal)
     
     const createCommandLambda = this.conversationGraphQL.addField({
       resourceLabel: "ConversationCreate",

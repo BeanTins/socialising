@@ -2,7 +2,6 @@ import { lambdaHandler } from "../member-devices-projection-handler"
 import { EventBridgeEvent, Context,APIGatewayProxyResult  } from "aws-lambda"
 import { mockClient } from "aws-sdk-client-mock"
 import {DynamoDBDocumentClient, GetCommand, PutCommand} from "@aws-sdk/lib-dynamodb"
-import { conversationCreateGraphQLField } from "../create"
 import {MemberDevicesAttributes} from "./helpers/member-devices-attributes"
 
 let event: EventBridgeEvent<any, any>
@@ -10,8 +9,10 @@ let context: Context
 const dynamoMock = mockClient(DynamoDBDocumentClient)
 
 const mockUUid = jest.fn()
-
 jest.mock("uuid", () => ({ v4: () => mockUUid() }))
+
+const Jock = "464fddb3-0e8a-4503-9f72-14d02e100da7"
+const JocksWindowsLaptop = "df25d2f4-85e1-4bc0-a7e3-bc42fca247e7"
 
 beforeEach(() => {
     jest.clearAllMocks()
@@ -25,14 +26,14 @@ test("event stored", async () => {
   process.env.MemberDevicesProjectionTableName = "MemberDevices"
   
   await whenActivatedMember({
-      memberId: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
-      name: "bing jacob", 
-      email: "bing.jacob@hotmail.com", 
-      deviceId: "fdf73659-942f-4a95-8dde-6f5f95b608a8"})
+      memberId: Jock, 
+      name: "Jock Crow", 
+      email: "jock.crow@hotmail.com", 
+      deviceId: JocksWindowsLaptop})
   
   thenStoredMemberDevices({
-    memberId: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
-    deviceIds: ["fdf73659-942f-4a95-8dde-6f5f95b608a8"]
+    memberId: Jock,
+    deviceIds: [JocksWindowsLaptop]
   })
 })
 

@@ -3,7 +3,7 @@ export interface ConversationAttributes {
     name?: string
     initiatingMemberId: string
     participantIds: Set<string>,
-    adminIds: Set<string>,
+    adminIds?: Set<string>,
     messages?: string[]
     state: "Activated" | "Created"
   }

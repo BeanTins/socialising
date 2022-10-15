@@ -76,6 +76,7 @@ export class MemberMessagesProjectionAccessor {
 
           if (messageIds.every(e => storedMessageIds.includes(e)))
           {
+            logger.verbose("Found " + JSON.stringify(storedMessageIds) + " in " + JSON.stringify(messageIds))
             messagesFound = true
             break
           }

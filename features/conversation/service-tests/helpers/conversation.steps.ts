@@ -2,7 +2,7 @@
 import { StepDefinitions } from "jest-cucumber"
 import { TestEnvVarSetup } from "./test-env-var-setup"
 import { MemberCredentialsAccessor} from "./member-credentials-accessor"
-import { ConversationClient, Response, Result} from "./conversation-client"
+import { ConversationClient, Response, Result, LatestMessagesResponse} from "./conversation-client"
 import logger from "./service-test-logger"
 import { FakeMember } from "./fake-member"
 import { ConversationsAccessor } from "./conversations-accessor"
@@ -24,6 +24,7 @@ let expectedFailureResponse: string
 let eventListener: EventListenerClient
 let firstParticipant: FakeMember
 let secondParticipant: FakeMember
+let latestMessagesResponse: LatestMessagesResponse
 let response: Response
 let secondResponse: Response
 let invitedMemberIds: string[]
@@ -37,6 +38,7 @@ let memberDevicesProjection: MemberDevicesProjectionAccessor
 let memberMessagesProjection: MemberMessagesProjectionAccessor 
 let membershipEventBusFakeArn: string
 let messages: MessagesAccessor
+let lastMessage: string
 
 beforeAll(async()=> {
 
@@ -210,6 +212,23 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
     
   })
 
+  given(/(\w+)'s (\w+) sends the message "(.+)" whilst (\w+)'s (\w+) is offline/, 
+  async (sender: string, senderDevice: string, message: string, receiver: string, receiverDevice: string) => {
+
+    const idToken = await memberCredentials.requestIdToken(firstParticipant.email, "passw0rd")
+
+    response = await client.sendMessage(
+      {senderMemberId: firstParticipant.memberId, 
+       senderDeviceId: firstParticipant.idForDevice(senderDevice)!, 
+       recipientMemberId: secondParticipant.memberId,
+       recipientDeviceId: secondParticipant.idForDevice(receiverDevice)!,
+       conversationId: conversationId, 
+       message,
+       idToken: idToken})
+    await memberMessagesProjection.waitForMessagesToBeStored(secondParticipant.memberId, [response.message!])       
+    lastMessage = message
+  })
+
   given(/an unactivated conversation between (\w+)'s (\w+) and (\w+)'s (\w+)/, 
       async (firstParticipantName: string, 
              firstParticipantDevice: string,
@@ -256,6 +275,20 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
        recipientDeviceId: secondParticipant.idForDevice(receiverDevice)!,
        conversationId: conversationId, 
        message,
+       idToken: idToken})
+  })
+
+  when(/(\w+)'s (\w+) checks for messages/, 
+  async (sender: string, senderDevice: string) => {
+
+    await secondParticipant.authenticatedWithPassword("passw0rd")
+
+    const idToken = await memberCredentials.requestIdToken(secondParticipant.email, "passw0rd")
+
+    latestMessagesResponse = await client.latestMessages(
+      {memberId: secondParticipant.memberId,
+       deviceId: secondParticipant.idForDevice(senderDevice)!, 
+       lastReceivedMessageId: "5",
        idToken: idToken})
   })
 
@@ -312,6 +345,17 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
     await expectValidateConnectionsRequest(conversationId)
 
     await expectPublishedCreatedEvent(conversationId)
+  })
+
+  then(/no messages are received/, async () => {
+    expect(latestMessagesResponse.result).toBe(Result.Succeeded)
+    expect(latestMessagesResponse.messages!.length).toBe(0)
+  })
+
+  then("the message(s) is received", async () => {
+    expect(latestMessagesResponse.result).toBe(Result.Succeeded)
+    expect(latestMessagesResponse.messages!.length).toBe(1)
+    expect(latestMessagesResponse.messages![0].message).toBe(lastMessage)
   })
 
   then(/the conversation is activated/, async () => {

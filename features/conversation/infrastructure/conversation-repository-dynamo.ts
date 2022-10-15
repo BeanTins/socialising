@@ -1,9 +1,8 @@
 import { Conversation } from "../domain/conversation"
-import { ConversationSnapshot, ConversationSnapshotAttributes } from "./conversation-snapshot"
+import { ConversationSnapshot } from "./conversation-snapshot"
 import { ConversationRepository } from "../domain/conversation-repository"
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
-import { DynamoDBDocumentClient, PutCommand, GetCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb"
-import { write } from "fs"
+import { DynamoDBDocumentClient, GetCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb"
 
 export class ConversationRepositoryDynamo implements ConversationRepository
 {
@@ -35,8 +34,9 @@ export class ConversationRepositoryDynamo implements ConversationRepository
              id: newMessage.id, 
              senderMemberId: newMessage.senderMemberId,
              senderDeviceId: newMessage.senderDeviceId,
-             date: newMessage.date,
-             encryptions: newMessage.encryptions
+             dateTime: newMessage.dateTime,
+             encryptions: newMessage.encryptions,
+             conversationId: conversation.id
            }
          }
        })

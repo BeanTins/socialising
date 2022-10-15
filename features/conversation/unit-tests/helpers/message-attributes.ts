@@ -6,7 +6,8 @@ export interface EncryptedMessage {
 }
 export interface MessageAttributes {
   id: string
-  date: string
+  dateTime: string
+  conversationId: string
   encryptions: EncryptedMessage[]
 }
 

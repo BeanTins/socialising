@@ -1,7 +1,15 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
 import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb"
 import logger from "./lambda-logger"
-import { Message } from "../domain/conversation"
+import { Message, MessageEncryptions} from "../domain/conversation"
+
+interface MessageMemberInfo
+{
+  conversationId: string
+  messageId: string
+  encryptedContent: string
+  dateTime: number
+}
 
 export class MessagesDAO
 {
@@ -18,21 +26,14 @@ export class MessagesDAO
   {
     let members: Set<string> = new Set()
     try{
-      const result =  await this.dynamoDB.send(new GetCommand({
-        TableName: this.tableName,
-        Key: {
-          id: messageId
-        }
-      }))
+      const message = await this.get(messageId)
 
-      if (result.Item != undefined)
+      if (message != undefined)
       {
-        const message = result.Item as Message
-
         members.add(message.senderMemberId)
-        for (const encryptedMessage of message.encryptions)
+        for (const deviceMessage of message.encryptions)
         {
-           members.add(encryptedMessage.recipientMemberId)
+           members.add(deviceMessage.recipientMemberId)
         }
       }
     }
@@ -42,5 +43,53 @@ export class MessagesDAO
 
     return members
   }
+
+  async getInfoForDevice(messageId: string, deviceId: string)
+  {
+    let memberInfo: MessageMemberInfo|undefined
+
+    const message = await this.get(messageId)
+
+    if (message != undefined)
+    {
+      const encryptedDeviceMessages: MessageEncryptions = message.encryptions
+
+      const deviceMessage = encryptedDeviceMessages.find(encryption => encryption.recipientDeviceId == deviceId)
+
+      if (deviceMessage != undefined)
+      {
+        memberInfo = {
+          conversationId: message.conversationId,
+          messageId: message.id,
+          encryptedContent: deviceMessage.encryptedMessage,
+          dateTime: message.dateTime
+
+        }
+      }
+    }
+
+    return memberInfo
+  }
+
+  async get(messageId: string)
+  {
+    let message
+    try
+    {
+      const result = await this.dynamoDB.send(new GetCommand({
+        TableName: this.tableName,
+        Key: {
+          id: messageId
+        }
+      }))
+      message = result.Item
+    } 
+    catch(err)
+    {
+      logger.error("message retrieval failed with " + JSON.stringify(err))
+    }
+
+    return message
+  } 
 }
 

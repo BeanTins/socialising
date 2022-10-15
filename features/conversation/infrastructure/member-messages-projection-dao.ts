@@ -1,5 +1,5 @@
 import { DynamoDBClient, ConditionalCheckFailedException } from "@aws-sdk/client-dynamodb"
-import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb"
+import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb"
 import logger from "./lambda-logger"
 
 export class MemberMessagesProjectionDAO
@@ -11,6 +11,32 @@ export class MemberMessagesProjectionDAO
     const client = new DynamoDBClient({region: region})
     this.dynamoDB = DynamoDBDocumentClient.from(client, {marshallOptions: {convertEmptyValues: true, convertClassInstanceToMap:true}})
     this.tableName = process.env.MemberMessagesProjectionTableName!
+  }
+
+  async getMessagesForMember(memberId: string)
+  {
+    let memberList = []
+    try{
+
+      const result =  await this.dynamoDB.send(new GetCommand({
+        TableName: this.tableName,
+        Key: {
+          memberId: memberId
+        }
+      }))
+
+      logger.verbose("member get result - " + JSON.stringify(result))
+      if (result.Item != undefined)
+      {
+        memberList = result.Item["messageIds"]
+      }
+    }
+    catch(error)
+    {
+      logger.error("member " + memberId + " get failed with " + error)
+    }
+
+    return memberList
   }
 
   async appendMessageForMembers(messageId: string, memberIds: Set<string>)
@@ -68,7 +94,6 @@ export class MemberMessagesProjectionDAO
       }
     }
     catch(err){
-      console.log(err)
       logger.error("member messages projection add failed with " + JSON.stringify(err))
     }
   }

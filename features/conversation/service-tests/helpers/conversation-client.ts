@@ -8,6 +8,13 @@ interface SendMessageParameters{
   idToken: string | undefined
 }
 
+interface LatestMessagesParameters{
+  deviceId: string
+  memberId: string
+  lastReceivedMessageId?: string
+  idToken: string | undefined
+}
+
 interface CreateParameters{
   initiatingMemberId: string 
   invitedMemberIds: string[] 
@@ -29,6 +36,12 @@ export enum Result {
 export interface Response {
   result: Result
   message: string
+}
+
+export interface LatestMessagesResponse {
+  result: Result
+  messages?: any[]
+  errorMessage?: string
 }
 
 import logger from "./service-test-logger"
@@ -126,6 +139,48 @@ export class ConversationClient
       }
 
       return response
+    }
+
+    async latestMessages(parameters: LatestMessagesParameters)
+    {
+      let response: LatestMessagesResponse
+      const graphQLClient = new GraphQLClient(this.endpoint, {
+        headers: {
+          Authorization: parameters.idToken!,
+        }
+      })
+
+      const LatestMessagesCommand = gql`
+      query LatestMessages($memberId: ID!, $deviceId: ID!, $lastReceivedMessageId: ID) {
+        latestMessages(memberId: $memberId, deviceId: $deviceId, lastReceivedMessageId: $lastReceivedMessageId) {
+          conversationId
+          messageId
+          message
+          dateTime
+        }
+      }
+    `;      
+      
+      const variables = {
+        memberId: parameters.memberId,
+        deviceId: parameters.deviceId,
+        lastReceivedMessageId: parameters.lastReceivedMessageId
+      }
+
+      try
+      {
+        const data = await graphQLClient.request(LatestMessagesCommand, variables)
+        logger.verbose("latest messages - " + JSON.stringify(data))
+        response = {result: Result.Succeeded, messages: data.latestMessages}
+      }
+      catch(error)
+      {
+        logger.verbose("Latest Messages error - " + JSON.stringify(error, undefined, 2))
+        response = {result: Result.Failed, errorMessage: error.response.errors[0].message}
+      }
+
+      return response
+
     }
 
     async sendMessage(parameters: SendMessageParameters)

@@ -13,7 +13,17 @@ const loggerErrorSpy = jest.spyOn(logger, "error")
 const mockUUid = jest.fn()
 jest.mock("uuid", () => ({ v4: () => mockUUid() }))
 
-let lastCommand: SendMessageEvent
+const JockAndRabChat = "09040739-830c-49d3-b8a5-1e6c9270fdb2"
+const JockRabAndTamsChat = "27fcefea-2c04-4d7a-a038-2522c2f5a6d9"
+const Jock = "464fddb3-0e8a-4503-9f72-14d02e100da7"
+const JocksAndroidPhone = "cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c"
+const JocksWindowsLaptop = "df25d2f4-85e1-4bc0-a7e3-bc42fca247e7"
+const Rab = "49070739-630c-2223-c8a5-2e6c9270fdb2"
+const RabsIPad = "e85b20be-fe46-4d1c-bcae-2a5fac8dbc99"
+const RabsIPhone = "916b74db-239c-47ee-9d6b-4cf68c3eea5d"
+const Tam = "a3aa5c04-f3a8-43ac-b125-bd4e8021b6ba"
+const TamsIPhone = "2bb28d20-18cb-4224-97cd-2ec7bca2f58f"
+
 const dynamoMock = mockClient(DynamoDBDocumentClient)
 
 beforeEach(() => {
@@ -31,36 +41,35 @@ test("unknown conversation throws error", async () => {
   givenConversation(undefined)
   
   await expect(async () => {
-    await whenSendMessage({conversationId: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
-    senderDeviceId: "e85b20be-fe46-4d1c-bcae-2a5fac8dbc99",
-    senderMemberId: "a3aa5c04-f3a8-43ac-b125-bd4e8021b6ba",
+    await whenSendMessage({conversationId: JockAndRabChat,
+    senderDeviceId: RabsIPad,
+    senderMemberId: Rab,
     messageEncryptions: [
-      {recipientDeviceId: "cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c", 
-       recipientMemberId: "464fddb3-0e8a-4503-9f72-14d02e100da7",
-       message: "hello"}]})
+      {recipientDeviceId: JocksAndroidPhone, 
+       recipientMemberId: Jock,
+       encryptedMessage: "hello"}]})
 
   }).rejects.toThrow("Send Message Error: UnknownConversation")
 
-  expectLoggerErrorEnding("Unknown conversation 09040739-830c-49d3-b8a5-1e6c9270fdb2 received")
+  expectLoggerErrorEnding("Unknown conversation " + JockAndRabChat)
 })
 
 test("unactivated conversation throws error", async () => {
 
   givenConversation({
-    id: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
-    initiatingMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
-    participantIds: new Set(["49070739-630c-2223-c8a5-2e6c9270fdb2", "79070739-630c-4423-c8a5-2e6c9270fdb2"]),
-    adminIds: new Set([]),
+    id: JockAndRabChat, 
+    initiatingMemberId: Rab,
+    participantIds: new Set([Rab, Jock]),
     state: "Created"})
 
   await expect(async () => {
-    await whenSendMessage({conversationId: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
-    senderDeviceId: "e85b20be-fe46-4d1c-bcae-2a5fac8dbc99",
-    senderMemberId: "a3aa5c04-f3a8-43ac-b125-bd4e8021b6ba",
+    await whenSendMessage({conversationId: JockAndRabChat,
+    senderDeviceId: RabsIPad,
+    senderMemberId: Rab,
     messageEncryptions: [
-      {recipientDeviceId: "cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c", 
-       recipientMemberId: "464fddb3-0e8a-4503-9f72-14d02e100da7",
-       message: "hello"}]})
+      {recipientDeviceId: JocksAndroidPhone, 
+       recipientMemberId: Jock,
+       encryptedMessage: "hello"}]})
 
   }).rejects.toThrow("Send Message Error: UnactivatedConversation")
 
@@ -69,192 +78,165 @@ test("unactivated conversation throws error", async () => {
 
 test("sender member not in conversation", async () => {
 
-  givenConversation({
-    id: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
-    initiatingMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
-    participantIds: new Set(["49070739-630c-2223-c8a5-2e6c9270fdb2", "79070739-630c-4423-c8a5-2e6c9270fdb2"]),
-    adminIds: new Set([]),
-    state: "Activated"})
+  givenJockAndRabConversation()
 
   await expect(async () => {
-    await whenSendMessage({conversationId: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
-    senderDeviceId: "e85b20be-fe46-4d1c-bcae-2a5fac8dbc99",
-    senderMemberId: "a3aa5c04-f3a8-43ac-b125-bd4e8021b6ba",
+    await whenSendMessage({conversationId: JockAndRabChat,
+    senderDeviceId: TamsIPhone,
+    senderMemberId: Tam,
     messageEncryptions: [
-      {recipientDeviceId: "cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c", 
-       recipientMemberId: "464fddb3-0e8a-4503-9f72-14d02e100da7",
-       message: "hello"}]})
+      {recipientDeviceId: JocksAndroidPhone, 
+       recipientMemberId: Jock,
+       encryptedMessage: "hello"}]})
 
   }).rejects.toThrow("Send Message Error: SenderMemberNotInConversation")
 
-  expectLoggerErrorEnding("Sender member a3aa5c04-f3a8-43ac-b125-bd4e8021b6ba not in conversation 09040739-830c-49d3-b8a5-1e6c9270fdb2")
+  expectLoggerErrorEnding("Sender member " + Tam + " not in conversation " + JockAndRabChat)
 })
 
 test("sender device not in conversation", async () => {
 
-  givenConversation({
-    id: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
-    initiatingMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
-    participantIds: new Set(["49070739-630c-2223-c8a5-2e6c9270fdb2", "464fddb3-0e8a-4503-9f72-14d02e100da7"]),
-    adminIds: new Set([]),
-    state: "Activated"})
+  givenJockAndRabConversation()
 
-  givenMemberDevices([
-    {memberId: "49070739-630c-2223-c8a5-2e6c9270fdb2", deviceIds: ["1aeebbd5-6428-4923-868e-ae0d51ed1cda"]},
-    {memberId: "464fddb3-0e8a-4503-9f72-14d02e100da7", deviceIds: ["cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c"]}
+  givenRecognisedDevices([
+    {memberId: Rab, deviceIds: [RabsIPad]},
+    {memberId: Jock, deviceIds: [JocksAndroidPhone]}
   ])
 
   await expect(async () => {
-    await whenSendMessage({conversationId: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
-    senderDeviceId: "e85b20be-fe46-4d1c-bcae-2a5fac8dbc99",
-    senderMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
+    await whenSendMessage({conversationId: JockAndRabChat,
+    senderDeviceId: RabsIPhone,
+    senderMemberId: Rab,
     messageEncryptions: [
-      {recipientDeviceId: "cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c", 
-       recipientMemberId: "464fddb3-0e8a-4503-9f72-14d02e100da7",
-       message: "hello"}]})
+      {recipientDeviceId: JocksAndroidPhone, 
+       recipientMemberId: Jock,
+       encryptedMessage: "hello"}]})
 
   }).rejects.toThrow("Send Message Error: SenderDeviceNotInConversation")
 
-  expectLoggerErrorEnding("Sender device e85b20be-fe46-4d1c-bcae-2a5fac8dbc99 not in conversation 09040739-830c-49d3-b8a5-1e6c9270fdb2")
+  expectLoggerErrorEnding("Sender device " + RabsIPhone + " not in conversation " + JockAndRabChat)
   
 })
 
 test("receiver member missing in conversation", async () => {
 
   givenConversation({
-    id: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
-    initiatingMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
-    participantIds: new Set(["49070739-630c-2223-c8a5-2e6c9270fdb2", "464fddb3-0e8a-4503-9f72-14d02e100da7", "c770a479-0154-4b29-9409-508363cfe13d"]),
-    adminIds: new Set([]),
+    id: JockRabAndTamsChat, 
+    initiatingMemberId: Rab,
+    participantIds: new Set([Rab, Tam, Jock]),
     state: "Activated"})
 
-  givenMemberDevices([
-    {memberId: "49070739-630c-2223-c8a5-2e6c9270fdb2", deviceIds: ["e85b20be-fe46-4d1c-bcae-2a5fac8dbc99"]},
-    {memberId: "464fddb3-0e8a-4503-9f72-14d02e100da7", deviceIds: ["cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c"]}
+  givenRecognisedDevices([
+    {memberId: Rab, deviceIds: [RabsIPad]},
+    {memberId: Jock, deviceIds: [JocksAndroidPhone]},
+    {memberId: Tam, deviceIds: [TamsIPhone]}
   ])
 
   await expect(async () => {
-    await whenSendMessage({conversationId: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
-    senderDeviceId: "e85b20be-fe46-4d1c-bcae-2a5fac8dbc99",
-    senderMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
+    await whenSendMessage({conversationId: JockAndRabChat,
+    senderDeviceId: RabsIPad,
+    senderMemberId: Rab,
     messageEncryptions: [
-      {recipientDeviceId: "cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c", 
-       recipientMemberId: "464fddb3-0e8a-4503-9f72-14d02e100da7",
-       message: "hello4"}]})
+      {recipientDeviceId: JocksAndroidPhone, 
+       recipientMemberId: Jock,
+       encryptedMessage: "hello4"}       
+      ]})
   }).rejects.toThrow("Send Message Error: ReceivingMemberMessageSetMismatch")
 
-  expectLoggerErrorEnding('Receiving message member set mismatch in conversation 09040739-830c-49d3-b8a5-1e6c9270fdb2, missing members: ["c770a479-0154-4b29-9409-508363cfe13d"], unrecognised members: []')  
+  expectLoggerErrorEnding("Receiving message member set mismatch in conversation " + JockRabAndTamsChat + ', missing members: ["' + Tam + '"], unrecognised members: []')  
 })
 
 test("receiver member unrecognised in conversation", async () => {
 
-  givenConversation({
-    id: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
-    initiatingMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
-    participantIds: new Set(["49070739-630c-2223-c8a5-2e6c9270fdb2", "464fddb3-0e8a-4503-9f72-14d02e100da7"]),
-    adminIds: new Set([]),
-    state: "Activated"})
+  givenJockAndRabConversation()
 
-  givenMemberDevices([
-    {memberId: "49070739-630c-2223-c8a5-2e6c9270fdb2", deviceIds: ["e85b20be-fe46-4d1c-bcae-2a5fac8dbc99"]},
-    {memberId: "464fddb3-0e8a-4503-9f72-14d02e100da7", deviceIds: ["cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c"]}
+  givenRecognisedDevices([
+    {memberId: Rab, deviceIds: [RabsIPad]},
+    {memberId: Jock, deviceIds: [JocksAndroidPhone]},
+    {memberId: Tam, deviceIds: [TamsIPhone]}
   ])
 
   await expect(async () => {
-    await whenSendMessage({conversationId: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
-    senderDeviceId: "e85b20be-fe46-4d1c-bcae-2a5fac8dbc99",
-    senderMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
+    await whenSendMessage({conversationId: JockAndRabChat,
+    senderDeviceId: RabsIPad,
+    senderMemberId: Rab,
     messageEncryptions: [
-      {recipientDeviceId: "cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c", 
-       recipientMemberId: "464fddb3-0e8a-4503-9f72-14d02e100da7",
-       message: "hello4"},
-      {recipientDeviceId: "b6aa6160-7115-43aa-834a-3b2ee5029718", 
-       recipientMemberId: "c770a479-0154-4b29-9409-508363cfe13d",
-      message: "helloc"}]}       )
+      {recipientDeviceId: JocksAndroidPhone, 
+       recipientMemberId: Jock,
+       encryptedMessage: "hello (encrypted with Jock's key)"},
+      {recipientDeviceId: TamsIPhone, 
+       recipientMemberId: Tam,
+       encryptedMessage: "hello (encrypted with Tam's key)"}
+    ]})       
   }).rejects.toThrow("Send Message Error: ReceivingMemberMessageSetMismatch")
 
-  expectLoggerErrorEnding('Receiving message member set mismatch in conversation 09040739-830c-49d3-b8a5-1e6c9270fdb2, missing members: [], unrecognised members: ["c770a479-0154-4b29-9409-508363cfe13d"]')  
+  expectLoggerErrorEnding("Receiving message member set mismatch in conversation " + JockAndRabChat + ', missing members: [], unrecognised members: ["' + Tam + '"]')  
 })
 
 test("receiver device unrecognised in conversation", async () => {
 
-  givenConversation({
-    id: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
-    initiatingMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
-    participantIds: new Set(["49070739-630c-2223-c8a5-2e6c9270fdb2", "464fddb3-0e8a-4503-9f72-14d02e100da7"]),
-    adminIds: new Set([]),
-    state: "Activated"})
+  givenJockAndRabConversation()
 
-  givenMemberDevices([
-    {memberId: "49070739-630c-2223-c8a5-2e6c9270fdb2", deviceIds: ["e85b20be-fe46-4d1c-bcae-2a5fac8dbc99"]},
-    {memberId: "464fddb3-0e8a-4503-9f72-14d02e100da7", deviceIds: ["cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c"]}
+  givenRecognisedDevices([
+    {memberId: Rab, deviceIds: [RabsIPad]},
+    {memberId: Jock, deviceIds: [JocksAndroidPhone]}
   ])
 
   await expect(async () => {
-    await whenSendMessage({conversationId: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
-    senderDeviceId: "e85b20be-fe46-4d1c-bcae-2a5fac8dbc99",
-    senderMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
+    await whenSendMessage({conversationId: JockAndRabChat,
+    senderDeviceId: RabsIPad,
+    senderMemberId: Rab,
     messageEncryptions: [
-      {recipientDeviceId: "cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c", 
-       recipientMemberId: "464fddb3-0e8a-4503-9f72-14d02e100da7",
-       message: "hello4"},
-      {recipientDeviceId: "b6aa6160-7115-43aa-834a-3b2ee5029718", 
-       recipientMemberId: "464fddb3-0e8a-4503-9f72-14d02e100da7",
-      message: "hello4"}]}       )
+      {recipientDeviceId: JocksAndroidPhone, 
+       recipientMemberId: Jock,
+       encryptedMessage: "hello (encrypted with JocksAndroidPhone's key)"},
+      {recipientDeviceId: JocksWindowsLaptop, 
+       recipientMemberId: Jock,
+       encryptedMessage: "hello (encrypted with JocksWindowsLaptop's key)"}]}       )
   }).rejects.toThrow("Send Message Error: ReceivingDeviceMessageSetMismatch")
 
-  expectLoggerErrorEnding('Receiving message device set mismatch in conversation 09040739-830c-49d3-b8a5-1e6c9270fdb2, missing devices: [], unrecognised devices: ["b6aa6160-7115-43aa-834a-3b2ee5029718"]')  
+  expectLoggerErrorEnding("Receiving message device set mismatch in conversation " + JockAndRabChat + ', missing devices: [], unrecognised devices: ["' + JocksWindowsLaptop + '"]')  
 })
 
 test("receiver device missing in conversation", async () => {
 
-  givenConversation({
-    id: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
-    initiatingMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
-    participantIds: new Set(["49070739-630c-2223-c8a5-2e6c9270fdb2", "464fddb3-0e8a-4503-9f72-14d02e100da7"]),
-    adminIds: new Set([]),
-    state: "Activated"})
+  givenJockAndRabConversation()
 
-  givenMemberDevices([
-    {memberId: "49070739-630c-2223-c8a5-2e6c9270fdb2", deviceIds: ["e85b20be-fe46-4d1c-bcae-2a5fac8dbc99"]},
-    {memberId: "464fddb3-0e8a-4503-9f72-14d02e100da7", deviceIds: ["cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c", "b6aa6160-7115-43aa-834a-3b2ee5029718"]}
+  givenRecognisedDevices([
+    {memberId: Rab, deviceIds: [RabsIPad]},
+    {memberId: Jock, deviceIds: [JocksAndroidPhone, JocksWindowsLaptop]}
   ])
 
   await expect(async () => {
-    await whenSendMessage({conversationId: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
-    senderDeviceId: "e85b20be-fe46-4d1c-bcae-2a5fac8dbc99",
-    senderMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
+    await whenSendMessage({conversationId: JockAndRabChat,
+    senderDeviceId: RabsIPad,
+    senderMemberId: Rab,
     messageEncryptions: [
-      {recipientDeviceId: "cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c", 
-       recipientMemberId: "464fddb3-0e8a-4503-9f72-14d02e100da7",
-       message: "hello4"}]}       )
+      {recipientDeviceId: JocksWindowsLaptop, 
+       recipientMemberId: Jock,
+       encryptedMessage: "hello4"}]}       )
   }).rejects.toThrow("Send Message Error: ReceivingDeviceMessageSetMismatch")
 
-  expectLoggerErrorEnding('Receiving message device set mismatch in conversation 09040739-830c-49d3-b8a5-1e6c9270fdb2, missing devices: ["b6aa6160-7115-43aa-834a-3b2ee5029718"], unrecognised devices: []')  
+  expectLoggerErrorEnding("Receiving message device set mismatch in conversation " + JockAndRabChat + ', missing devices: ["' + JocksAndroidPhone + '"], unrecognised devices: []')  
 })
 test("successful message returns id", async () => {
 
   mockUUid.mockReturnValue("57b22b8c-3656-4dcb-8188-17472042279e")
 
-  givenConversation({
-    id: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
-    initiatingMemberId: "a3aa5c04-f3a8-43ac-b125-bd4e8021b6ba",
-    participantIds: new Set(["a3aa5c04-f3a8-43ac-b125-bd4e8021b6ba", "464fddb3-0e8a-4503-9f72-14d02e100da7"]),
-    adminIds: new Set([]),
-    state: "Activated"})
+  givenJockAndRabConversation()
 
-  givenMemberDevices([
-    {memberId: "a3aa5c04-f3a8-43ac-b125-bd4e8021b6ba", deviceIds: ["e85b20be-fe46-4d1c-bcae-2a5fac8dbc99"]},
-    {memberId: "464fddb3-0e8a-4503-9f72-14d02e100da7", deviceIds: ["cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c"]}
+  givenRecognisedDevices([
+    {memberId: Rab, deviceIds: [RabsIPad]},
+    {memberId: Jock, deviceIds: [JocksAndroidPhone]}
   ])
     
-  const messageId = await whenSendMessage({conversationId: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
-    senderDeviceId: "e85b20be-fe46-4d1c-bcae-2a5fac8dbc99",
-    senderMemberId: "a3aa5c04-f3a8-43ac-b125-bd4e8021b6ba",
+  const messageId = await whenSendMessage({conversationId: JockAndRabChat,
+    senderDeviceId: RabsIPad,
+    senderMemberId: Rab,
     messageEncryptions: [
-      {recipientDeviceId: "cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c", 
-      recipientMemberId: "464fddb3-0e8a-4503-9f72-14d02e100da7",
-       message: "hello"}]})
+      {recipientDeviceId: JocksAndroidPhone, 
+      recipientMemberId: Jock,
+      encryptedMessage: "hello"}]})
 
   expect(messageId).toBe("57b22b8c-3656-4dcb-8188-17472042279e")
 })
@@ -263,33 +245,29 @@ test("send message stored", async () => {
 
   mockUUid.mockReturnValue("57b22b8c-3656-4dcb-8188-17472042279e")
   jest.spyOn(Date, 'now').mockReturnValueOnce(new Date('2019-05-14T11:01:58.135Z').valueOf())
-  givenConversation({
-    id: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
-    messages: [],
-    initiatingMemberId: "a3aa5c04-f3a8-43ac-b125-bd4e8021b6ba",
-    participantIds: new Set(["a3aa5c04-f3a8-43ac-b125-bd4e8021b6ba", "464fddb3-0e8a-4503-9f72-14d02e100da7"]),
-    adminIds: new Set([]),
-    state: "Activated"})
 
-  givenMemberDevices([
-    {memberId: "a3aa5c04-f3a8-43ac-b125-bd4e8021b6ba", deviceIds: ["e85b20be-fe46-4d1c-bcae-2a5fac8dbc99"]},
-    {memberId: "464fddb3-0e8a-4503-9f72-14d02e100da7", deviceIds: ["cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c"]}
+  givenJockAndRabConversation()
+
+  givenRecognisedDevices([
+    {memberId: Rab, deviceIds: [RabsIPad]},
+    {memberId: Jock, deviceIds: [JocksAndroidPhone]}
   ])
     
-  const messageId = await whenSendMessage({conversationId: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
-    senderDeviceId: "e85b20be-fe46-4d1c-bcae-2a5fac8dbc99",
-    senderMemberId: "a3aa5c04-f3a8-43ac-b125-bd4e8021b6ba",
+  const messageId = await whenSendMessage({conversationId: JockAndRabChat,
+    senderDeviceId: RabsIPad,
+    senderMemberId: Rab,
     messageEncryptions: [
-      {recipientDeviceId: "cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c", 
-       recipientMemberId: "464fddb3-0e8a-4503-9f72-14d02e100da7",
-       message: "hello"}]})
+      {recipientDeviceId: JocksAndroidPhone, 
+       recipientMemberId: Jock,
+       encryptedMessage: "hello"}]})
 
   thenMessageCreated({
     id: "57b22b8c-3656-4dcb-8188-17472042279e",
-    date: '2019-05-14T11:01:58.135Z',
+    conversationId: JockAndRabChat,
+    dateTime: '2019-05-14T11:01:58.135Z',
     encryptions: [
-      {recipientDeviceId: "cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c",
-       recipientMemberId: "464fddb3-0e8a-4503-9f72-14d02e100da7", 
+      {recipientDeviceId: JocksAndroidPhone,
+       recipientMemberId: Jock, 
        message: "hello"}
       ]})
 })
@@ -325,7 +303,8 @@ function thenMessageCreated(message: MessageAttributes)
           Put: expect.objectContaining({
             TableName: "Messages",
             Item: expect.objectContaining({id: message.id,
-                                           date: new Date(message.date).valueOf(),
+                                           conversationId: message.conversationId,
+                                           dateTime: new Date(message.dateTime).valueOf(),
                                            encryptions: message.encryptions})
           })
         })        
@@ -333,13 +312,23 @@ function thenMessageCreated(message: MessageAttributes)
     })
   )
 }
-  
+
+function givenJockAndRabConversation()
+{
+  givenConversation({
+    id: JockAndRabChat, 
+    messages: [],
+    initiatingMemberId: Rab,
+    participantIds: new Set([Rab, Jock]),
+    state: "Activated"})
+}
+
 function givenConversation(conversation: ConversationAttributes|undefined)
 {
   dynamoMock.on(GetCommand).resolves({Item: conversation})
 }
 
-function givenMemberDevices(memberDevicesList: MemberDevicesAttributes[]){
+function givenRecognisedDevices(memberDevicesList: MemberDevicesAttributes[]){
   dynamoMock.on(BatchGetCommand).resolves(
     {Responses:{MemberDevicesProjectionTable: memberDevicesList},
      UnprocessedKeys:{}})
@@ -350,7 +339,6 @@ async function whenSendMessage(
 
     let context: Context
 
-    lastCommand = message
     const event = {
       arguments: message,
         source: {},

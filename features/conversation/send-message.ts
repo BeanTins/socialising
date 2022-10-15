@@ -108,7 +108,7 @@ export class UnknownConversation extends Error
 {
   constructor (conversationId: string)
   {
-    super("Unknown conversation " + conversationId + " received")
+    super("Unknown conversation " + conversationId)
   }
 }
 

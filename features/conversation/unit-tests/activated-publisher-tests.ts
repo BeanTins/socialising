@@ -6,15 +6,11 @@ import { ConversationAttributes } from "./helpers/conversation-attributes"
 
 const eventbridgeMock = mockClient(EventBridgeClient)
 
+const JockAndRabChat = "09040739-830c-49d3-b8a5-1e6c9270fdb2"
+const Jock = "464fddb3-0e8a-4503-9f72-14d02e100da7"
+const Rab = "49070739-630c-2223-c8a5-2e6c9270fdb2"
+
 let event: DynamoDBStreamEvent, context: Context
-const testConversation: ConversationAttributes = {
-    id: "dec97fc5-2ee6-4e09-81d5-35fe6acca70b",
-    name: "Tuesday five-a-sides",
-    initiatingMemberId: "dfcdbba9-6bcd-4786-823d-8b2c9dde85ba",
-    participantIds: new Set(["dfcdbba9-6bcd-4786-823d-8b2c9dde85ba", "06667f4a-0790-4251-b74b-17d392b1fe36"]),
-    adminIds: new Set<string>(),
-    state: "Created"
-}
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -27,17 +23,17 @@ test("integration event is sent", async () => {
   process.env.EventBusName = "SocialisingEventBus"
   
   await whenConversationActivated({
-    id: "dec97fc5-2ee6-4e09-81d5-35fe6acca70b",
-    name: "Tuesday five-a-sides",
-    initiatingMemberId: "dfcdbba9-6bcd-4786-823d-8b2c9dde85ba",
-    participantIds: new Set(["dfcdbba9-6bcd-4786-823d-8b2c9dde85ba", "06667f4a-0790-4251-b74b-17d392b1fe36"]),
+    id: JockAndRabChat,
+    name: "Jock & Rab Blether",
+    initiatingMemberId: Jock,
+    participantIds: new Set([Jock, Rab]),
     adminIds: new Set<string>(),
     state: "Created"
   })
 
   expectSentIntegrationEventToContain({
     Detail: JSON.stringify({
-      conversationId: "dec97fc5-2ee6-4e09-81d5-35fe6acca70b"
+      conversationId: JockAndRabChat
     }),
     DetailType: "ConversationActivated",
     EventBusName: "SocialisingEventBus",
@@ -61,7 +57,7 @@ async function whenConversationActivated(conversation: ConversationAttributes){
           S: conversation.name
         },
         adminIds: {
-          SS: Array.from(conversation.adminIds)
+          SS: Array.from(conversation.adminIds!)
         },
         messages: {
           L: []
@@ -81,7 +77,7 @@ async function whenConversationActivated(conversation: ConversationAttributes){
           S: conversation.name
         },
         adminIds: {
-          SS: Array.from(conversation.adminIds)
+          SS: Array.from(conversation.adminIds!)
         },
         messages: {
           SS: []

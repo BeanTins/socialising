@@ -5,6 +5,7 @@ import {ConditionalCheckFailedException} from "@aws-sdk/client-dynamodb"
 import {DynamoDBDocumentClient, GetCommand, UpdateCommand} from "@aws-sdk/lib-dynamodb"
 import {Message} from "../domain/conversation"
 import logger from "../infrastructure/lambda-logger"
+import {MemberMessagesAttributes} from "./helpers/member-messages-attributes"
 
 const loggerErrorSpy = jest.spyOn(logger, "error")
 const loggerVerboseSpy = jest.spyOn(logger, "verbose")
@@ -13,57 +14,65 @@ let event: EventBridgeEvent<any, any>
 let context: Context
 const dynamoMock = mockClient(DynamoDBDocumentClient)
 
+const JockRabAndTamsChat = "27fcefea-2c04-4d7a-a038-2522c2f5a6d9"
+const Jock = "464fddb3-0e8a-4503-9f72-14d02e100da7"
+const JocksAndroidPhone = "cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c"
+const Rab = "49070739-630c-2223-c8a5-2e6c9270fdb2"
+const RabsIPhone = "916b74db-239c-47ee-9d6b-4cf68c3eea5d"
+const Tam = "a3aa5c04-f3a8-43ac-b125-bd4e8021b6ba"
+const TamsIPhone = "2bb28d20-18cb-4224-97cd-2ec7bca2f58f"
+
 beforeEach(() => {
     jest.clearAllMocks()
     dynamoMock.reset()
-})
+    process.env.MemberMessagesProjectionTableName = "MemberMessages"
+    process.env.MessagesTableName = "MessagesTable"
+ })
 
 test("append message to sender and recipients member projection", async () => {
 
-  process.env.MemberMessagesProjectionTableName = "MemberMessages"
-  process.env.MessagesTableName = "MessagesTable"
   givenMessage({
     id: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
-    senderMemberId: "ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21",
-    senderDeviceId: "c834163e-502b-4e63-8cab-294bf13a560b",
-    date: 0,
+    senderMemberId: Jock,
+    senderDeviceId: JocksAndroidPhone,
+    dateTime: 0,
     encryptions: [
-      {recipientDeviceId: "5b74b221-1be7-4c18-91ac-0121ae0cee77",
-       recipientMemberId: "eda0eabe-6c2b-474f-9dde-d6a67232721a",
-       message: "garbled encryption"},
-       {recipientDeviceId: "5a072b0f-2d69-4809-acb7-f408cafed0db",
-       recipientMemberId: "6f4386fe-bbff-4684-b0f7-698600ba8eb9",
-       message: "garbled encryption"},
+      {recipientDeviceId: TamsIPhone,
+       recipientMemberId: Tam,
+       encryptedMessage: "garbled encryption"},
+       {recipientDeviceId: RabsIPhone,
+       recipientMemberId: Rab,
+       encryptedMessage: "garbled encryption"},
     ]
   })
 
-  givenMemberMessagesUndefinedForMember("ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21")
+  givenMemberMessagesUndefinedForMember(Jock)
 
   givenMemberMessages({
-    memberId: "eda0eabe-6c2b-474f-9dde-d6a67232721a",
+    memberId: Tam,
     messageIds: ["47017043-ef04-46f7-b669-b8293ef04aff", "e989bd3e-7c00-4326-9f19-30c252e760e4"],
     version: 2})
 
-  givenMemberMessagesUndefinedForMember("6f4386fe-bbff-4684-b0f7-698600ba8eb9")
+  givenMemberMessagesUndefinedForMember(Rab)
   
   await whenMessageSent({
       messageId: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
       conversationId: "fdf73659-942f-4a95-8dde-6f5f95b608a8"})
   
   thenMemberMessagesUpdate({
-    memberId: "eda0eabe-6c2b-474f-9dde-d6a67232721a",
+    memberId: Tam,
     messageId: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
     version: 2
   })
 
   thenMemberMessagesUpdate({
-    memberId: "6f4386fe-bbff-4684-b0f7-698600ba8eb9",
+    memberId: Rab,
     messageId: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
     version: 0
   })
 
   thenMemberMessagesUpdate({
-    memberId: "ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21",
+    memberId: Jock,
     messageId: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
     version: 0
   })
@@ -71,47 +80,45 @@ test("append message to sender and recipients member projection", async () => {
 
 test("only append message to sender and recipients member projection if not already done (idempotence)", async () => {
 
-  process.env.MemberMessagesProjectionTableName = "MemberMessages"
-  process.env.MessagesTableName = "MessagesTable"
   givenMessage({
     id: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
-    senderMemberId: "ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21",
-    senderDeviceId: "c834163e-502b-4e63-8cab-294bf13a560b",
-    date: 0,
+    senderMemberId: Jock,
+    senderDeviceId: JocksAndroidPhone,
+    dateTime: 0,
     encryptions: [
-      {recipientDeviceId: "5b74b221-1be7-4c18-91ac-0121ae0cee77",
-       recipientMemberId: "eda0eabe-6c2b-474f-9dde-d6a67232721a",
-       message: "garbled encryption"},
-       {recipientDeviceId: "5a072b0f-2d69-4809-acb7-f408cafed0db",
-       recipientMemberId: "6f4386fe-bbff-4684-b0f7-698600ba8eb9",
-       message: "garbled encryption"},
+      {recipientDeviceId: TamsIPhone,
+       recipientMemberId: Tam,
+       encryptedMessage: "garbled encryption"},
+       {recipientDeviceId: RabsIPhone,
+       recipientMemberId: Rab,
+       encryptedMessage: "garbled encryption"},
     ]
   })
 
   givenMemberMessages(
-    {memberId: "ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21",
+    {memberId: Jock,
       messageIds: ["09040739-830c-49d3-b8a5-1e6c9270fdb2"],
       version: 1
     })
 
   givenMemberMessages(
-    {memberId: "eda0eabe-6c2b-474f-9dde-d6a67232721a",
+    {memberId: Tam,
      messageIds: ["47017043-ef04-46f7-b669-b8293ef04aff", "09040739-830c-49d3-b8a5-1e6c9270fdb2"],
      version: 2
     })
 
-  givenMemberMessagesUndefinedForMember("6f4386fe-bbff-4684-b0f7-698600ba8eb9")
+  givenMemberMessagesUndefinedForMember(Rab)
   
   await whenMessageSent({
       messageId: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
-      conversationId: "fdf73659-942f-4a95-8dde-6f5f95b608a8"})
+      conversationId: JockRabAndTamsChat})
   
-  thenMemberMessagesNotUpdated("ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21")
+  thenMemberMessagesNotUpdated(Jock)
 
-  thenMemberMessagesNotUpdated("eda0eabe-6c2b-474f-9dde-d6a67232721a")
+  thenMemberMessagesNotUpdated(Tam)
 
   thenMemberMessagesUpdate({
-    memberId: "6f4386fe-bbff-4684-b0f7-698600ba8eb9",
+    memberId: Rab,
     messageId: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
     version: 0
   })
@@ -119,88 +126,84 @@ test("only append message to sender and recipients member projection if not alre
 
 test("optimistic locking", async () => {
 
-  process.env.MemberMessagesProjectionTableName = "MemberMessages"
-  process.env.MessagesTableName = "MessagesTable"
   givenMessage({
     id: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
-    senderMemberId: "ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21",
-    senderDeviceId: "c834163e-502b-4e63-8cab-294bf13a560b",
-    date: 0,
+    senderMemberId: Jock,
+    senderDeviceId: JocksAndroidPhone,
+    dateTime: 0,
     encryptions: [
-      {recipientDeviceId: "5b74b221-1be7-4c18-91ac-0121ae0cee77",
-       recipientMemberId: "eda0eabe-6c2b-474f-9dde-d6a67232721a",
-       message: "garbled encryption"}
+      {recipientDeviceId: TamsIPhone,
+       recipientMemberId: Tam,
+       encryptedMessage: "garbled encryption"}
     ]
   })
 
   givenMemberMessages(
-    {memberId: "eda0eabe-6c2b-474f-9dde-d6a67232721a",
+    {memberId: Tam,
      messageIds: ["47017043-ef04-46f7-b669-b8293ef04aff", "22d75e76-c38d-4231-a5f3-040afb0c55fa"],
      version: 1
     })
   
   givenMemberMessageUpdateOptimisticLocks({
-    memberId: "ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21",
+    memberId: Jock,
     messageIds: ["47017043-ef04-46f7-b669-b8293ef04aff"],
     version: 1
   },
   {
-    memberId: "ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21",
+    memberId: Jock,
     messageIds: ["47017043-ef04-46f7-b669-b8293ef04aff", "22d75e76-c38d-4231-a5f3-040afb0c55fa"],
     version: 2
   })
 
   await whenMessageSent({
       messageId: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
-      conversationId: "fdf73659-942f-4a95-8dde-6f5f95b608a8"})
+      conversationId: JockRabAndTamsChat})
   
   thenMemberMessagesNthUpdateIs(0, {
-    memberId: "ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21",
+    memberId: Jock,
     messageId: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
     version: 1
   })
 
   thenMemberMessagesNthUpdateIs(1, {
-    memberId: "ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21",
+    memberId: Jock,
     messageId: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
     version: 2
   })
-  expect(loggerVerboseSpy).toBeCalledWith("optimistic locking for member ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21 with message 09040739-830c-49d3-b8a5-1e6c9270fdb2")
+  expect(loggerVerboseSpy).toBeCalledWith("optimistic locking for member " + Jock + " with message 09040739-830c-49d3-b8a5-1e6c9270fdb2")
 })
 
 test("optimistic locking retries exceeded", async () => {
 
-  process.env.MemberMessagesProjectionTableName = "MemberMessages"
-  process.env.MessagesTableName = "MessagesTable"
   givenMessage({
     id: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
-    senderMemberId: "ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21",
-    senderDeviceId: "c834163e-502b-4e63-8cab-294bf13a560b",
-    date: 0,
+    senderMemberId: Jock,
+    senderDeviceId: JocksAndroidPhone,
+    dateTime: 0,
     encryptions: [
-      {recipientDeviceId: "5b74b221-1be7-4c18-91ac-0121ae0cee77",
-       recipientMemberId: "eda0eabe-6c2b-474f-9dde-d6a67232721a",
-       message: "garbled encryption"}
+      {recipientDeviceId: TamsIPhone,
+       recipientMemberId: Tam,
+       encryptedMessage: "garbled encryption"}
     ]
   })
 
   givenMemberMessages(
-    {memberId: "eda0eabe-6c2b-474f-9dde-d6a67232721a",
+    {memberId: Tam,
      messageIds: ["47017043-ef04-46f7-b669-b8293ef04aff", "22d75e76-c38d-4231-a5f3-040afb0c55fa"],
      version: 2
     })
   
   givenMemberMessageUpdateOptimisticLocksIndefinitely({
-    memberId: "ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21",
+    memberId: Jock,
     messageIds: ["47017043-ef04-46f7-b669-b8293ef04aff", "22d75e76-c38d-4231-a5f3-040afb0c55fa"],
     version: 2
    })
 
   await whenMessageSent({
       messageId: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
-      conversationId: "fdf73659-942f-4a95-8dde-6f5f95b608a8"})
+      conversationId: JockRabAndTamsChat})
 
-  expect(loggerErrorSpy).toBeCalledWith("member ce79fbb9-b68f-4cd2-a4ff-da31e3f8fb21 exceeded optimistic lock retries for message 09040739-830c-49d3-b8a5-1e6c9270fdb2")
+  expect(loggerErrorSpy).toBeCalledWith("member " + Jock + " exceeded optimistic lock retries for message 09040739-830c-49d3-b8a5-1e6c9270fdb2")
 
 })
 
@@ -209,12 +212,6 @@ interface MessageSent {
     messageId: string
   }
 
-interface MemberMessages {
-  memberId: string
-  messageIds: string[]
-  version: number
-}
-  
 interface MemberMessagesUpdate {
   memberId: string
   messageId: string
@@ -245,7 +242,7 @@ function givenMemberMessagesUndefinedForMember(memberId: string)
   ).resolves({Item: undefined})
 }
 
-function givenMemberMessageUpdateOptimisticLocks(initialMessages: MemberMessages, afterLockMessages: MemberMessages)
+function givenMemberMessageUpdateOptimisticLocks(initialMessages: MemberMessagesAttributes, afterLockMessages: MemberMessagesAttributes)
 {
   dynamoMock
   .on(GetCommand, {
@@ -269,7 +266,7 @@ function givenMemberMessageUpdateOptimisticLocks(initialMessages: MemberMessages
 });
 }
 
-function givenMemberMessageUpdateOptimisticLocksIndefinitely(memberMessages: MemberMessages)
+function givenMemberMessageUpdateOptimisticLocksIndefinitely(memberMessages: MemberMessagesAttributes)
 {
   dynamoMock
   .on(GetCommand, {
@@ -294,7 +291,7 @@ function givenMemberMessageUpdateOptimisticLocksIndefinitely(memberMessages: Mem
 
 
 
-function givenMemberMessages(memberMessages: MemberMessages)
+function givenMemberMessages(memberMessages: MemberMessagesAttributes)
 {
   dynamoMock
     .on(GetCommand, {

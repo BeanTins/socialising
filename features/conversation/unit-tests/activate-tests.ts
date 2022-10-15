@@ -14,6 +14,10 @@ jest.mock("../infrastructure/lambda-logger", () => ({ verbose: (message: string)
 const dynamoMock = mockClient(DynamoDBDocumentClient)
 const eventbridgeMock = mockClient(EventBridgeClient)
 
+const JockAndRabChat = "09040739-830c-49d3-b8a5-1e6c9270fdb2"
+const Jock = "464fddb3-0e8a-4503-9f72-14d02e100da7"
+const Rab = "49070739-630c-2223-c8a5-2e6c9270fdb2"
+
 beforeEach(() => {
     jest.clearAllMocks()
 
@@ -24,11 +28,9 @@ test("conversation activate validated updates domain object", async () => {
   process.env.ConversationsTableName = "ConversationsTable1"
 
   givenConversation({
-    id: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
-    name: "",
-    initiatingMemberId: "49070739-630c-2223-c8a5-2e6c9270fdb2",
-    participantIds: new Set(["49070739-630c-2223-c8a5-2e6c9270fdb2", "79070739-630c-4423-c8a5-2e6c9270fdb2"]),
-    adminIds: new Set([]),
+    id: JockAndRabChat, 
+    initiatingMemberId: Jock,
+    participantIds: new Set([Jock, Rab]),
     state: "Created"})
 
   await whenConversationActivate("1234", true)
@@ -107,7 +109,7 @@ function thenMessageCreated(message: MessageAttributes)
           Put: expect.objectContaining({
             TableName: "Messages",
             Item: expect.objectContaining({id: message.id,
-                                           date: new Date(message.date).valueOf(),
+                                           dateTime: new Date(message.dateTime).valueOf(),
                                            encryptions: message.encryptions})
           })
         })        
