@@ -11,6 +11,7 @@ interface MemberMessagesProjectionHandlerStackProps extends StackProps {
   memberMessagesProjectionTableName: string
   messagesTableName: string
   membershipEventBusArn: string
+  incomingMemberMessageMutationUrl: string
 }
 
 export class MemberMessagesProjectionHandler extends Stack {
@@ -24,7 +25,8 @@ export class MemberMessagesProjectionHandler extends Stack {
       environment: 
       {  
         MemberMessagesProjectionTableName: props.memberMessagesProjectionTableName,
-        MessagesTableName: props.messagesTableName
+        MessagesTableName: props.messagesTableName,
+        IncomingMemberMessageMutationUrl: props.incomingMemberMessageMutationUrl
       },
       memorySize: 1024,
       timeout: Duration.seconds(5),

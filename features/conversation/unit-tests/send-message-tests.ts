@@ -268,7 +268,7 @@ test("send message stored", async () => {
     encryptions: [
       {recipientDeviceId: JocksAndroidPhone,
        recipientMemberId: Jock, 
-       message: "hello"}
+       encryptedMessage: "hello"}
       ]})
 })
 

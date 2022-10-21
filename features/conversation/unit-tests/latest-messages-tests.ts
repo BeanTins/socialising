@@ -14,13 +14,13 @@ const JocksAndroidPhone = "cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c"
 const Rab = "a3aa5c04-f3a8-43ac-b125-bd4e8021b6ba"
 const RabsIPad = "e85b20be-fe46-4d1c-bcae-2a5fac8dbc99"
 const HelloMessage = "67a607f0-a6a9-42ce-b609-17510bc10534"
-const HelloMessageTime = new Date('2019-05-14T11:01:58.135Z').valueOf()
+const HelloMessageTime = new Date('2019-05-14T11:01:58.135Z')
 const GoodbyeMessage = "d663166c-5bf9-402c-a5d9-9bdcb1be7a84"
-const GoodbyeMessageTime = new Date('2019-05-14T11:32:58.135Z').valueOf()
+const GoodbyeMessageTime = new Date('2019-05-14T11:32:58.135Z')
 const WhereWillWeMeet = "99557a95-a076-4b35-8224-f021085f6ac3"
 const OutsideTheGroundMessage = "1aef25c7-dd1a-4cb2-aeda-d5c3925e05f6"
 const IAmHereMessage = "942f9f80-77b6-4b6c-b917-477bc7563972"
-const IAmHereMessageTime = new Date('2019-05-14T11:22:58.135Z').valueOf()
+const IAmHereMessageTime = new Date('2019-05-14T11:22:58.135Z')
 
 const dynamoMock = mockClient(DynamoDBDocumentClient)
 
@@ -47,14 +47,14 @@ test("one message from start of conversation", async () => {
                        version: 1})
 
   givenMessage({id: HelloMessage,
-                dateTime: HelloMessageTime,
+                dateTime: HelloMessageTime.valueOf(),
                 conversationId: JockAndRabBletherId,
                 senderDeviceId: RabsIPad,
                 senderMemberId: Rab,
                 encryptions: [
                   {recipientDeviceId: JocksAndroidPhone, 
                    recipientMemberId: Jock,
-                   message: "hello"}]})
+                   encryptedMessage: "hello"}]})
 
   const result = await whenRequestLatestMessages({
     memberId: Jock,
@@ -66,7 +66,7 @@ test("one message from start of conversation", async () => {
         conversationId: JockAndRabBletherId,
         messageId: HelloMessage,
         message: "hello",
-        dateTime: HelloMessageTime
+        dateTime: HelloMessageTime.toISOString()
   })
 })
 
@@ -77,24 +77,24 @@ test("one message from two conversations", async () => {
                        version: 1})
 
   givenMessage({id: GoodbyeMessage,
-                dateTime: GoodbyeMessageTime,
+                dateTime: GoodbyeMessageTime.valueOf(),
                 conversationId: JockAndRabBletherId,
                 senderDeviceId: RabsIPad,
                 senderMemberId: Rab,
                 encryptions: [
                   {recipientDeviceId: JocksAndroidPhone, 
                    recipientMemberId: Jock,
-                   message: "goodbye"}]})
+                   encryptedMessage: "goodbye"}]})
 
   givenMessage({id: IAmHereMessage,
-                dateTime: IAmHereMessageTime,
+                dateTime: IAmHereMessageTime.valueOf(),
                 conversationId: JockRabAndTamsChat,
                 senderDeviceId: RabsIPad,
                 senderMemberId: Rab,
                 encryptions: [
                   {recipientDeviceId: JocksAndroidPhone, 
                     recipientMemberId: Jock,
-                    message: "I am here"
+                    encryptedMessage: "I am here"
                   }
                 ]})
     
@@ -109,13 +109,13 @@ test("one message from two conversations", async () => {
     conversationId: JockRabAndTamsChat,
     messageId: IAmHereMessage,
     message: "I am here",
-    dateTime: IAmHereMessageTime
+    dateTime: IAmHereMessageTime.toISOString()
   })
   expect(result[1]).toEqual({
     conversationId: JockAndRabBletherId,
     messageId: GoodbyeMessage,
     message: "goodbye",
-    dateTime: GoodbyeMessageTime
+    dateTime: GoodbyeMessageTime.toISOString()
   })
 
 })
@@ -127,14 +127,14 @@ test("one message from offset of conversation", async () => {
                        version: 1})
 
   givenMessage({id: GoodbyeMessage,
-                dateTime: HelloMessageTime,
+                dateTime: HelloMessageTime.valueOf(),
                 conversationId: JockAndRabBletherId,
                 senderDeviceId: RabsIPad,
                 senderMemberId: Rab,
                 encryptions: [
                   {recipientDeviceId: JocksAndroidPhone, 
                    recipientMemberId: Jock,
-                   message: "goodbye"}]})
+                   encryptedMessage: "goodbye"}]})
 
   const result = await whenRequestLatestMessages({
     memberId: Jock,
@@ -147,7 +147,7 @@ test("one message from offset of conversation", async () => {
         conversationId: JockAndRabBletherId,
         messageId: GoodbyeMessage,
         message: "goodbye",
-        dateTime: HelloMessageTime
+        dateTime: HelloMessageTime.toISOString()
   })
 })
 
@@ -158,14 +158,14 @@ test("up-to-date", async () => {
                        version: 1})
 
   givenMessage({id: HelloMessage,
-                dateTime: HelloMessageTime,
+                dateTime: HelloMessageTime.valueOf(),
                 conversationId: JockAndRabBletherId,
                 senderDeviceId: RabsIPad,
                 senderMemberId: Rab,
                 encryptions: [
                   {recipientDeviceId: JocksAndroidPhone, 
                    recipientMemberId: Jock,
-                   message: "hello"}]})
+                   encryptedMessage: "hello"}]})
 
   const result = await whenRequestLatestMessages({
     memberId: Jock,
@@ -191,7 +191,7 @@ function givenMemberMessages(memberMessages: MemberMessagesAttributes)
 export interface EncryptedDeviceMessage{
   recipientDeviceId: string
   recipientMemberId: string
-  message: string
+  encryptedMessage: string
 }
 
 export type MessageEncryptions = EncryptedDeviceMessage[]

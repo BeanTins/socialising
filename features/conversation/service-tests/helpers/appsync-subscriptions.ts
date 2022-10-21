@@ -63,7 +63,6 @@ export class AppsyncSubscriptions
     async subscribeToQuery(query: any): Promise<string> {
 
       const subscribeMessage = {
-        //"{\"query\":\"subscription onCreateMessage {\\n onCreateMessage {\\n __typename\\n message\\n }\\n }\",\"variables\":{}}",
 
           id: uuidv4(),
           payload: {
@@ -83,7 +82,7 @@ export class AppsyncSubscriptions
       return subscriptionId
     }
 
-    async waitForUpdate(subscriptionId: any): Promise<string> {
+    async waitForUpdate(subscriptionId: any, subscriptionName: string): Promise<any> {
       const socket = this.subscriptionWebSocket
       return new Promise(function(resolve, reject) {
 
@@ -94,8 +93,9 @@ export class AppsyncSubscriptions
           if (result.type == "data")
           {
 
-             console.log("subscription update to " + result.payload)
-             resolve(result.payload.data)
+             console.log("subscription update to " + JSON.stringify(result.payload))
+             const payload = result.payload.data[subscriptionName]
+             resolve(payload)
           }
         }
     

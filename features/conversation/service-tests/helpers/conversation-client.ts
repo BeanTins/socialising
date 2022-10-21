@@ -28,6 +28,11 @@ interface CreatedSubscriptionParameters{
   initiatingMemberId: string
 }
 
+interface IncomingMessageSubscriptionParameters{
+  idToken: string | undefined
+  memberId: string
+}
+
 export enum Result {
   Succeeded,
   Failed
@@ -97,9 +102,42 @@ export class ConversationClient
 
     }
 
-    async waitForSubscriptionUpdate(subscriptionId: string) : Promise<string>
+    async subscribeToIncomingMemberMessage(parameters: IncomingMessageSubscriptionParameters) : Promise<string>
     {
-      return await this.subscriptions.waitForUpdate(subscriptionId)
+      let subscriptionId: string
+
+      try{
+        this.subscriptions = new AppsyncSubscriptions(this.endpoint, parameters.idToken!)
+
+         await this.subscriptions.open()
+
+
+        const subscribeQuery = {
+          query: `subscription IncomingMemberMessageReceived {
+            incomingMemberMessageReceived(memberId:"${parameters.memberId}"){
+              __typename,
+              conversationId,
+              messageId
+            }
+           }`
+          }
+  
+         subscriptionId = await this.subscriptions.subscribeToQuery(subscribeQuery)
+  
+      } 
+      catch(error)
+      {
+
+      }
+      
+      return subscriptionId!
+
+    }
+
+
+    async waitForSubscriptionUpdate(subscriptionId: string, subscriptionName: string)
+    {
+      return await this.subscriptions.waitForUpdate(subscriptionId, subscriptionName)
     }
 
     async create(parameters: CreateParameters) : Promise<Response>

@@ -119,9 +119,9 @@ export class ConversationsAccessor {
     })
   }
 
-  async waitForMessage(conversationId: string, retries: number = 3, retryWaitInMillisecs = 500)
+  async waitForMessage(conversationId: string, retries: number = 3, retryWaitInMillisecs = 500): Promise<string|undefined>
   {
-    let messageId
+    let messageId: string|undefined
     const messageFound = await this.waitForConversation(conversationId, retries, retryWaitInMillisecs, (scanResult)=>{
       let matched = false
       if((scanResult.Count != null) && scanResult.Count == 1)
@@ -130,7 +130,7 @@ export class ConversationsAccessor {
 
         if (conversation.messages.length > 0)
         {
-          messageId = conversation.messages[conversation.messages.length - 1]
+          messageId = conversation.messages[conversation.messages.length - 1] as string
           matched = true
         }
       }

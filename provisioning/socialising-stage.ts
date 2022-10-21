@@ -6,6 +6,8 @@ import { ConversationsTable } from "../features/conversation/infrastructure/conv
 import { MessagesTable } from "../features/conversation/infrastructure/messages-table"
 import { conversationCreateGraphQLField, CreatedResponse } from "../features/conversation/create"
 import { conversationSendMessageGraphQLField, DeviceMessage } from "../features/conversation/send-message"
+import { conversationIncomingMemberMessageGraphQLField, IncomingMemberMessageResponse } from "../features/conversation/incoming-member-message"
+import { conversationIncomingMemberMessageReceivedGraphQLField } from "../features/conversation/incoming-member-message-received"
 import { conversationLatestMessagesGraphQLField, LatestMessagesResponse } from "../features/conversation/latest-messages"
 import { ValidateConnectionsRequestPolicy } from "../features/conversation/validate-connections-request-policy-stack"
 import { ConversationActivateCommand } from "../features/conversation/activate-stack"
@@ -108,13 +110,15 @@ export class SocialisingStage extends Stage implements Stage{
       {
         messagesTableName: this.messagesTable.name,
         memberMessagesProjectionTableName: this.memberMessagesProjection.name,
-        membershipEventBusArn: this.eventBus.Arn
+        membershipEventBusArn: this.eventBus.Arn,
+        incomingMemberMessageMutationUrl: this.conversationGraphQL.api.graphqlUrl
       })
     this.memberMessagesProjection.grantAccessTo(this.memberMessagesProjectionHandler.lambda.grantPrincipal)
     this.messagesTable.grantAccessTo(this.memberMessagesProjectionHandler.lambda.grantPrincipal)
+    this.conversationGraphQL.api.grantMutation(this.memberMessagesProjectionHandler.lambda.grantPrincipal)
 
     this.conversationGraphQL.addType(LatestMessagesResponse)
-    const latestMessagesLambda = this.conversationGraphQL.addField({
+    const latestMessagesLambda = this.conversationGraphQL.addLambdaResolvedField({
       resourceLabel: "ConversationLatestMessages",
       functionEnvironment:
       {
@@ -130,7 +134,7 @@ export class SocialisingStage extends Stage implements Stage{
     this.memberMessagesProjection.grantAccessTo(latestMessagesLambda.grantPrincipal)
     this.messagesTable.grantAccessTo(latestMessagesLambda.grantPrincipal)
     
-    const createCommandLambda = this.conversationGraphQL.addField({
+    const createCommandLambda = this.conversationGraphQL.addLambdaResolvedField({
       resourceLabel: "ConversationCreate",
       functionEnvironment: {
         ConversationsTableName: this.conversationsTable.name, 
@@ -141,7 +145,7 @@ export class SocialisingStage extends Stage implements Stage{
     this.conversationsTable.grantAccessTo(createCommandLambda.grantPrincipal)
 
     this.conversationGraphQL.addType(DeviceMessage)    
-    const sendMessageCommandLambda = this.conversationGraphQL.addField({
+    const sendMessageCommandLambda = this.conversationGraphQL.addLambdaResolvedField({
       resourceLabel: "ConversationSendMessage",
       functionEnvironment: {
         ConversationsTableName: this.conversationsTable.name, 
@@ -182,9 +186,15 @@ export class SocialisingStage extends Stage implements Stage{
       eventBusArn: this.eventBus.Arn
      })
      this.eventBus.grantAccessTo(this.activatedPublisher.lambda.grantPrincipal)
-
   
-    this.conversationGraphQL.addSubscription()
+    this.conversationGraphQL.addType(IncomingMemberMessageResponse)
+
+    this.conversationGraphQL.addNoneResolvedField({
+      resourceLabel: "ConversationIncomingMessage",
+      field: conversationIncomingMemberMessageGraphQLField
+    })
+
+    this.conversationGraphQL.addSubscription(conversationIncomingMemberMessageReceivedGraphQLField)
   }
 
 }

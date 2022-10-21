@@ -4,31 +4,37 @@ import { Construct } from "constructs"
 import { Runtime } from "aws-cdk-lib/aws-lambda"
 import {NodejsFunction} from "aws-cdk-lib/aws-lambda-nodejs"
 import { EnvvarsStack } from "../../infrastructure/envvars-stack"
-import { GraphqlApi, AuthorizationType, Directive, GraphqlType, Field, IIntermediateType } from "@aws-cdk/aws-appsync-alpha"
+import { GraphqlApi, AuthorizationType, IIntermediateType, MappingTemplate } from "@aws-cdk/aws-appsync-alpha"
 import { UserPool} from "aws-cdk-lib/aws-cognito"
 import { GraphQLField, addField} from "./infrastructure/graphQL-field"
-import { CreatedResponse} from "./create"
 
 interface CreateCommandProps extends StackProps {
   userPoolId: string
 }
 
-interface GraphAPIProps {
+interface LambdaResolvedField {
   resourceLabel: string
   functionEnvironment: any
   functionSourceLocation: string
   field: GraphQLField
 }
 
+interface NoneResolvedField {
+  resourceLabel: string
+  field: GraphQLField
+}
+
 export class ConversationStack extends EnvvarsStack {
 
   public readonly api: GraphqlApi
+  private readonly userPoolId: string
 
   constructor(scope: Construct, id: string, props: CreateCommandProps) {
     super(scope, id, props)
 
     const userPool = UserPool.fromUserPoolId(this, "UserPool", props.userPoolId);
 
+    this.userPoolId = props.userPoolId
     this.api = new GraphqlApi(this, 'Api', {
       name: 'socialising',
       authorizationConfig: {
@@ -38,14 +44,19 @@ export class ConversationStack extends EnvvarsStack {
               userPool: userPool,
             },
         },
+        additionalAuthorizationModes: [{
+          authorizationType: AuthorizationType.IAM
+        }]
       }
+      
      })
-
 
     this.addEnvvar("apiURL", this.api.graphqlUrl)
     this.addEnvvar("apiId", this.api.apiId)
   }
-  addField(props: GraphAPIProps)
+
+
+  addLambdaResolvedField(props: LambdaResolvedField)
   {
     const lambda = new NodejsFunction(this, props.resourceLabel + "Function", {
       environment: props.functionEnvironment,
@@ -68,19 +79,29 @@ export class ConversationStack extends EnvvarsStack {
     return lambda
   }
 
-  addSubscription()
+  addNoneResolvedField(props: NoneResolvedField)
   {
-    const createSubscriptionGraphQLField: GraphQLField = {
-      name: "created",
-      type: "Subscription",
-      schema:  new Field({
-        returnType: CreatedResponse.attribute({isRequired: false}),
-        args: { initiatingMemberId: GraphqlType.id({ isRequired: false }) },
-        directives: [Directive.subscribe('create')],
-      })
-    } 
+    const dataSource = this.api.addNoneDataSource(props.resourceLabel + "DataSource")
 
-    this.api.addSubscription("created", createSubscriptionGraphQLField.schema)
+    dataSource.createResolver({
+      typeName: props.field.type,
+      fieldName: props.field.name,
+       requestMappingTemplate: MappingTemplate.fromString(`
+       {
+         "version": "2018-05-29",
+         "payload": $util.toJson($context.arguments)
+       }
+       `),
+       responseMappingTemplate: MappingTemplate.fromString(`
+         $util.toJson($context.result)
+       `),       
+    })
+    addField(this.api, props.field)
+  }
+
+  addSubscription(subscriptionField: GraphQLField)
+  {
+    this.api.addSubscription(subscriptionField.name, subscriptionField.schema)
   }
 
   addType(type: IIntermediateType){

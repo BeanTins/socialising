@@ -1,7 +1,7 @@
 export interface EncryptedMessage {
   recipientDeviceId: string,
   recipientMemberId: string,
-  message: string
+  encryptedMessage: string
 
 }
 export interface MessageAttributes {

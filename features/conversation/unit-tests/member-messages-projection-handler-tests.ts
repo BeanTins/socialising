@@ -14,6 +14,25 @@ let event: EventBridgeEvent<any, any>
 let context: Context
 const dynamoMock = mockClient(DynamoDBDocumentClient)
 
+jest.mock('@aws-sdk/signature-v4', () => {
+  return {SignatureV4: jest.fn().mockImplementation(() => {
+      return {sign: (httpRequest: any) => httpRequest}})
+    }
+  })
+
+const mockFetch = jest.fn()
+const mockFetchJson = jest.fn()
+mockFetch.mockReturnValue(
+  Promise.resolve({
+    json: () => mockFetchJson()
+  })
+)
+
+jest.mock('node-fetch', () => ({
+  __esModule: true,
+  default: (url: string, requestInit: any)=> mockFetch(url, requestInit),
+}))
+
 const JockRabAndTamsChat = "27fcefea-2c04-4d7a-a038-2522c2f5a6d9"
 const Jock = "464fddb3-0e8a-4503-9f72-14d02e100da7"
 const JocksAndroidPhone = "cd7346c4-fa3d-4c30-9a4e-c52c6fc5e29c"
@@ -27,6 +46,7 @@ beforeEach(() => {
     dynamoMock.reset()
     process.env.MemberMessagesProjectionTableName = "MemberMessages"
     process.env.MessagesTableName = "MessagesTable"
+    process.env.IncomingMemberMessageMutationUrl = "http://beantins.com/incomingMemberMessage"
  })
 
 test("append message to sender and recipients member projection", async () => {
@@ -206,6 +226,74 @@ test("optimistic locking retries exceeded", async () => {
   expect(loggerErrorSpy).toBeCalledWith("member " + Jock + " exceeded optimistic lock retries for message 09040739-830c-49d3-b8a5-1e6c9270fdb2")
 
 })
+
+test("notification invoked", async () => {
+
+  givenMessage({
+    id: "09040739-830c-49d3-b8a5-1e6c9270fdb2",
+    senderMemberId: Jock,
+    senderDeviceId: JocksAndroidPhone,
+    dateTime: 0,
+    encryptions: [
+      {recipientDeviceId: TamsIPhone,
+       recipientMemberId: Tam,
+       encryptedMessage: "garbled encryption"},
+       {recipientDeviceId: RabsIPhone,
+       recipientMemberId: Rab,
+       encryptedMessage: "garbled encryption"},
+    ]
+  })
+
+  givenMemberMessagesUndefinedForMember(Jock)
+
+  givenMemberMessages({
+    memberId: Tam,
+    messageIds: ["47017043-ef04-46f7-b669-b8293ef04aff", "e989bd3e-7c00-4326-9f19-30c252e760e4"],
+    version: 2})
+
+  givenMemberMessagesUndefinedForMember(Rab)
+  
+  await whenMessageSent({
+      messageId: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
+      conversationId: JockRabAndTamsChat})
+
+  expectNotification(0, {
+    messageId: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
+    conversationId: JockRabAndTamsChat,
+    memberId: Jock
+  })
+
+  expectNotification(1, {
+    messageId: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
+    conversationId: JockRabAndTamsChat,
+    memberId: Tam
+  })
+
+  expectNotification(2, {
+    messageId: "09040739-830c-49d3-b8a5-1e6c9270fdb2", 
+    conversationId: JockRabAndTamsChat,
+    memberId: Rab
+  })
+
+})
+
+
+function expectNotification(index: number, notification: MemberMessageNotification)
+{
+  const requestInit = mockFetch.mock.calls[index][1]
+  const bodyString = requestInit.body
+  const body = JSON.parse(bodyString) 
+  const variables = body.variables
+
+  expect(mockFetch.mock.calls[index][0]).toBe(process.env.IncomingMemberMessageMutationUrl)
+  expect(variables).toEqual(expect.objectContaining(notification))
+}
+
+interface MemberMessageNotification {
+  memberId: string
+  conversationId: string
+  messageId: string
+}
 
 interface MessageSent {
     conversationId: string

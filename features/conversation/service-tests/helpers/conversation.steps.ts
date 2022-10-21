@@ -34,11 +34,13 @@ let validateConnectionsResponse: ValidateConnectionsResponseFakeClient
 let validateResponse: boolean
 let conversationId: string
 let deviceName: string
-let memberDevicesProjection: MemberDevicesProjectionAccessor 
-let memberMessagesProjection: MemberMessagesProjectionAccessor 
+let memberDevicesProjection: MemberDevicesProjectionAccessor
+let memberMessagesProjection: MemberMessagesProjectionAccessor
 let membershipEventBusFakeArn: string
 let messages: MessagesAccessor
 let lastMessage: string
+let incomingMemberMessageSubscriptionId: string
+let messageId: string|undefined
 
 beforeAll(async()=> {
 
@@ -82,7 +84,7 @@ beforeAll(async()=> {
 
     membershipEventBusFakeArn = testEnvVarSetup.resolveVariable("MembershipEventBusFakeArn")
 
-  } 
+  }
   catch(error)
   {
     logger.error("beforeAll failed with - " + error.message)
@@ -98,8 +100,8 @@ function getTestTimeout(scenarioDescription: string)
   if (match != undefined)
   {
     timeout = parseInt(match?.groups!.timeout) * 1000
-  } 
- 
+  }
+
   return timeout
 }
 
@@ -109,7 +111,7 @@ beforeEach(async () => {
 
   console.log("Running test: " + currentTestName)
   logger.verbose("*** Running test - " + currentTestName + " ***")
-  
+
   firstParticipant = new FakeMember(memberCredentials, membershipEventBusFakeArn, AWS_REGION)
   secondParticipant = new FakeMember(memberCredentials, membershipEventBusFakeArn, AWS_REGION)
   invitedMemberIds = []
@@ -150,7 +152,7 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
   })
 
   given(/a pending conversation instigated by (.+) with their connection (.+)/, async (firstParticipantName, secondParticipantName) => {
-    
+
     conversationId = uuidv4()
 
     firstParticipant.withName(firstParticipantName)
@@ -165,7 +167,7 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
       adminIds: new Set()})
 
     const event = await eventListener.waitForEventType("ConversationCreated")
-    
+
     validateResponse = true
   })
 
@@ -179,8 +181,8 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
     await firstParticipant.authenticatedWithPassword("passw0rd")
   })
 
-  given(/an existing conversation between (\w+)'s (\w+) and (\w+)'s (\w+)/, 
-      async (firstParticipantName: string, 
+  given(/an existing conversation between (\w+)'s (\w+) and (\w+)'s (\w+)/,
+      async (firstParticipantName: string,
              firstParticipantDevice: string,
              secondParticipantName: string,
              secondParticipantDevice: string) => {
@@ -191,13 +193,13 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
     secondParticipant.withDevice(secondParticipantDevice)
     await firstParticipant.activated()
     await secondParticipant.activated()
-    conversationId = uuidv4() 
+    conversationId = uuidv4()
 
     invitedMemberIds = [secondParticipant.memberId]
-    
+
     Promise.all([
       await memberDevicesProjection.waitForDeviceToBeStored(firstParticipant.memberId, firstParticipant.idForDevice(firstParticipantDevice)!),
-      await memberDevicesProjection.waitForDeviceToBeStored(secondParticipant.memberId, secondParticipant.idForDevice(secondParticipantDevice)!),   
+      await memberDevicesProjection.waitForDeviceToBeStored(secondParticipant.memberId, secondParticipant.idForDevice(secondParticipantDevice)!),
       await conversations.add({
         id: conversationId,
         initiatingMemberId: firstParticipant.memberId,
@@ -209,28 +211,28 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
       }),
       await firstParticipant.authenticatedWithPassword("passw0rd")
     ])
-    
+
   })
 
-  given(/(\w+)'s (\w+) sends the message "(.+)" whilst (\w+)'s (\w+) is offline/, 
+  given(/(\w+)'s (\w+) sends the message "(.+)" whilst (\w+)'s (\w+) is offline/,
   async (sender: string, senderDevice: string, message: string, receiver: string, receiverDevice: string) => {
 
     const idToken = await memberCredentials.requestIdToken(firstParticipant.email, "passw0rd")
 
     response = await client.sendMessage(
-      {senderMemberId: firstParticipant.memberId, 
-       senderDeviceId: firstParticipant.idForDevice(senderDevice)!, 
+      {senderMemberId: firstParticipant.memberId,
+       senderDeviceId: firstParticipant.idForDevice(senderDevice)!,
        recipientMemberId: secondParticipant.memberId,
        recipientDeviceId: secondParticipant.idForDevice(receiverDevice)!,
-       conversationId: conversationId, 
+       conversationId: conversationId,
        message,
        idToken: idToken})
-    await memberMessagesProjection.waitForMessagesToBeStored(secondParticipant.memberId, [response.message!])       
+    await memberMessagesProjection.waitForMessagesToBeStored(secondParticipant.memberId, [response.message!])
     lastMessage = message
   })
 
-  given(/an unactivated conversation between (\w+)'s (\w+) and (\w+)'s (\w+)/, 
-      async (firstParticipantName: string, 
+  given(/an unactivated conversation between (\w+)'s (\w+) and (\w+)'s (\w+)/,
+      async (firstParticipantName: string,
              firstParticipantDevice: string,
              secondParticipantName: string,
              secondParticipantDevice: string) => {
@@ -241,13 +243,13 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
     secondParticipant.withDevice(secondParticipantDevice)
     await firstParticipant.activated()
     await secondParticipant.activated()
-    conversationId = uuidv4() 
+    conversationId = uuidv4()
 
     invitedMemberIds = [secondParticipant.memberId]
-    
+
     Promise.all([
       await memberDevicesProjection.waitForDeviceToBeStored(firstParticipant.memberId, firstParticipant.idForDevice(firstParticipantDevice)!),
-      await memberDevicesProjection.waitForDeviceToBeStored(secondParticipant.memberId, secondParticipant.idForDevice(secondParticipantDevice)!),   
+      await memberDevicesProjection.waitForDeviceToBeStored(secondParticipant.memberId, secondParticipant.idForDevice(secondParticipantDevice)!),
       await conversations.add({
         id: conversationId,
         initiatingMemberId: firstParticipant.memberId,
@@ -259,26 +261,46 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
       }),
       await firstParticipant.authenticatedWithPassword("passw0rd")
     ])
-    
+
     expectedFailureResponse = "Send Message Error: UnactivatedConversation"
   })
 
-  when(/(\w+)'s (\w+) sends the message "(.+)" to (\w+)'s (\w+)/, 
+  when(/(\w+)'s (\w+) sends the message "(.+)" whilst (\w+)'s (\w+) is online/,
+  async (sender: string, senderDevice: string, message: string, receiver: string, receiverDevice: string) => {
+
+    const idToken = await memberCredentials.requestIdToken(firstParticipant.email, "passw0rd")
+
+    incomingMemberMessageSubscriptionId = await client.subscribeToIncomingMemberMessage({idToken: idToken, memberId: secondParticipant.memberId})
+
+    response = await client.sendMessage(
+      {senderMemberId: firstParticipant.memberId,
+       senderDeviceId: firstParticipant.idForDevice(senderDevice)!,
+       recipientMemberId: secondParticipant.memberId,
+       recipientDeviceId: secondParticipant.idForDevice(receiverDevice)!,
+       conversationId: conversationId,
+       message,
+       idToken: idToken})
+
+     messageId = await conversations.waitForMessage(conversationId)      
+  })
+
+
+  when(/(\w+)'s (\w+) sends the message "(.+)" to (\w+)'s (\w+)/,
   async (sender: string, senderDevice: string, message: string, receiver: string, receiverDevice: string) => {
 
     const idToken = await memberCredentials.requestIdToken(firstParticipant.email, "passw0rd")
 
     response = await client.sendMessage(
-      {senderMemberId: firstParticipant.memberId, 
-       senderDeviceId: firstParticipant.idForDevice(senderDevice)!, 
+      {senderMemberId: firstParticipant.memberId,
+       senderDeviceId: firstParticipant.idForDevice(senderDevice)!,
        recipientMemberId: secondParticipant.memberId,
        recipientDeviceId: secondParticipant.idForDevice(receiverDevice)!,
-       conversationId: conversationId, 
+       conversationId: conversationId,
        message,
        idToken: idToken})
   })
 
-  when(/(\w+)'s (\w+) checks for messages/, 
+  when(/(\w+)'s (\w+) checks for messages/,
   async (sender: string, senderDevice: string) => {
 
     await secondParticipant.authenticatedWithPassword("passw0rd")
@@ -287,22 +309,22 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
 
     latestMessagesResponse = await client.latestMessages(
       {memberId: secondParticipant.memberId,
-       deviceId: secondParticipant.idForDevice(senderDevice)!, 
+       deviceId: secondParticipant.idForDevice(senderDevice)!,
        lastReceivedMessageId: "5",
        idToken: idToken})
   })
 
-  when(/(\w+)'s (\w+) sends another message "(.+)" to (\w+)'s (\w+)/, 
+  when(/(\w+)'s (\w+) sends another message "(.+)" to (\w+)'s (\w+)/,
   async (sender: string, senderDevice: string, message: string, receiver: string, receiverDevice: string) => {
 
     const idToken = await memberCredentials.requestIdToken(firstParticipant.email, "passw0rd")
 
     secondResponse = await client.sendMessage(
-      {senderMemberId: firstParticipant.memberId, 
-       senderDeviceId: firstParticipant.idForDevice(senderDevice)!, 
+      {senderMemberId: firstParticipant.memberId,
+       senderDeviceId: firstParticipant.idForDevice(senderDevice)!,
        recipientMemberId: secondParticipant.memberId,
        recipientDeviceId: secondParticipant.idForDevice(receiverDevice)!,
-       conversationId: conversationId, 
+       conversationId: conversationId,
        message,
        idToken: idToken})
   })
@@ -312,9 +334,9 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
     const idToken = await memberCredentials.requestIdToken(firstParticipant.email, "passw0rd")
 
     response = await client.create(
-      {initiatingMemberId: firstParticipant.memberId, 
-       invitedMemberIds: invitedMemberIds, 
-       name: "", 
+      {initiatingMemberId: firstParticipant.memberId,
+       invitedMemberIds: invitedMemberIds,
+       name: "",
        adminIds: [],
        idToken: idToken})
   })
@@ -322,14 +344,14 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
   when(/they are activated/, async () => {
 
     await firstParticipant.activated()
-    
+
   })
 
   when(/a validation connection response is received/, async () => {
 
     await validateConnectionsResponse.notifySuccess(conversationId)
   })
-  
+
   then(/the request is rejected/, () => {
     expect(response.result).toBe(Result.Failed)
     expect(expectedFailureResponse).toBe(response.message)
@@ -370,6 +392,12 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
     expect(await memberDevicesProjection.waitForDeviceToBeStored(firstParticipant.memberId, firstParticipant.idForDevice(deviceName)!)).toBe(true)
   })
 
+  then(/(\w+)'s (\w+) is immediately notified/, async (receiver: string, receiverDevice: string) => {
+    const result = await client.waitForSubscriptionUpdate(incomingMemberMessageSubscriptionId, "incomingMemberMessageReceived")
+    expect(result.conversationId).toBe(conversationId)
+    expect(result.messageId).toBe(messageId)
+  })
+
   then(/the message is rejected/, async () => {
     expect(response.result).toBe(Result.Failed)
     expect(response.message).toBe(expectedFailureResponse)
@@ -377,7 +405,7 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
 
   then(/the message is accepted/, async () => {
     expect(response.result).toBe(Result.Succeeded)
-    const messageId = await conversations.waitForMessage(conversationId)
+    messageId = await conversations.waitForMessage(conversationId)
     expect(messageId).toBeDefined()
 
     expect(await messages.waitForMessage(messageId!)).toBe(true)
