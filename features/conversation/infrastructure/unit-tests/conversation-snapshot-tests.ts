@@ -10,6 +10,8 @@ test("snapshot to conversation", async() => {
   snapshot.participantIds = new Set(["1234", "4321"])
   snapshot.adminIds = new Set(["1234"])
   snapshot.state = State.Activated
+  snapshot.messages = ["6037d72b-7a3b-4125-a3e8-c0b277f6c957"]
+  snapshot.latestReadReceipts = {"d7d65b55-6be0-40c4-85be-4380b1b4f072": "6037d72b-7a3b-4125-a3e8-c0b277f6c957"}
 
   var conversation = snapshot.toConversation()
   expect(conversation["initiatingMemberId"]).toBe("1234")
@@ -18,6 +20,23 @@ test("snapshot to conversation", async() => {
   expect(conversation["adminIds"]).toEqual(new Set(["1234"]))
   expect(conversation["id"]).toBe("123e4567-e89b-12d3-a456-426614174000")
   expect(conversation["state"]).toBe("Activated")
+  expect(conversation["messages"]).toEqual(["6037d72b-7a3b-4125-a3e8-c0b277f6c957"])
+  expect(conversation["latestReadReceipts"]).toEqual({"d7d65b55-6be0-40c4-85be-4380b1b4f072": "6037d72b-7a3b-4125-a3e8-c0b277f6c957"})
+})
+
+test("snapshot to conversation converts undefined to empty objects", async() => {
+
+  const snapshot = new ConversationSnapshot()
+  snapshot.initiatingMemberId = "1234"
+  snapshot.id = "123e4567-e89b-12d3-a456-426614174000"
+  snapshot.name = "software craft chat"
+  snapshot.participantIds = new Set(["1234", "4321"])
+  snapshot.adminIds = new Set(["1234"])
+  snapshot.state = State.Activated
+
+  var conversation = snapshot.toConversation()
+  expect(conversation["messages"]).toEqual([])
+  expect(conversation["latestReadReceipts"]).toEqual({})
 })
 
 test("snapshot to conversation with null name", async() => {

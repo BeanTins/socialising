@@ -46,6 +46,7 @@ export class Conversation extends Entity {
   private state: State
   private messages: string[]
   private newMessage: Message | undefined
+  private latestReadReceipts: Record<string, string>
 
   private constructor(initiatingMemberId: string, name: string|null, participantIds: Set<string>, adminIds: Set<string>, id: string|null) {
     super(id)
@@ -55,6 +56,7 @@ export class Conversation extends Entity {
     this.adminIds = adminIds
     this.state = State.Created
     this.messages = []
+    this.latestReadReceipts = {}
   }
 
   public static create(initiatingMemberId: string, participantIds: Set<string>, name: string|null = null, adminIds: Set<string> = new Set()): Conversation
@@ -124,6 +126,41 @@ export class Conversation extends Entity {
 
      this.messages.push(messageId)
      return messageId
+  }
+
+  public acknowledgeReadReceipt(
+    memberId: string,
+    latestReadMessageId: string)
+  {
+    let updated: boolean = false
+
+    if (this.state != "Activated")
+    {
+      throw new UnactivatedConversation(this.id)
+    }
+
+    const currentReadMessageId = this.latestReadReceipts[memberId]
+
+    if ((currentReadMessageId == undefined) ||
+        this.isLatestMessageSuccessorOfCurrent(latestReadMessageId, currentReadMessageId))
+    {
+      this.latestReadReceipts[memberId] = latestReadMessageId
+      updated = true
+    }
+
+    return updated
+  }
+
+  private isLatestMessageSuccessorOfCurrent(latestReadMessageId: string, currentReadMessageId: string) {
+    let successor = false
+
+    const latestReadIndex = this.messages.indexOf(latestReadMessageId)
+    if (latestReadIndex != -1) {
+      const currentReadIndex = this.messages.indexOf(currentReadMessageId)
+      successor = (latestReadIndex > currentReadIndex)
+    }
+
+    return successor
   }
 
   private validateMessageMembers(senderMemberId: string, messageEncryptions: MessageEncryptions) {

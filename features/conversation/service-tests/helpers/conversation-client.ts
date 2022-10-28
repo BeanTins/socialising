@@ -8,6 +8,18 @@ interface SendMessageParameters{
   idToken: string | undefined
 }
 
+interface ReadReceiptParameters{
+  memberId: string,
+  conversationId: string,
+  latestReadMessage: string,
+  idToken: string | undefined
+}
+
+interface LatestReadReceiptsParameters{
+  conversationId: string,
+  idToken: string | undefined
+}
+
 interface LatestMessagesParameters{
   deviceId: string
   memberId: string
@@ -41,6 +53,11 @@ export enum Result {
 export interface Response {
   result: Result
   message: string
+}
+
+export interface LatestReadReceiptsResponse {
+  result: Result
+  readReceipts: Record<string,string>|undefined
 }
 
 export interface LatestMessagesResponse {
@@ -179,6 +196,80 @@ export class ConversationClient
       return response
     }
 
+    async readReceipt(parameters: ReadReceiptParameters) : Promise<Result>
+    {
+      let response: Result
+      const graphQLClient = new GraphQLClient(this.endpoint, {
+        headers: {
+          Authorization: parameters.idToken!,
+        }
+      })
+
+      const ReadReceiptCommand = gql`
+      mutation ReadReceipt($memberId: ID!, $conversationId: ID!, $latestReadMessageId: ID!) {
+        readReceipt(memberId: $memberId, conversationId: $conversationId, latestReadMessageId: $latestReadMessageId)
+      }
+    `;      
+      
+      const variables = {
+        memberId: parameters.memberId,
+        conversationId: parameters.conversationId,
+        latestReadMessageId: parameters.latestReadMessage,
+      }
+
+      try
+      {
+        const data = await graphQLClient.request(ReadReceiptCommand, variables)
+        logger.verbose("read receipt responded with - " + JSON.stringify(data))
+        response = Result.Succeeded
+      }
+      catch(error)
+      {
+        logger.verbose("Read Receipt error - " + JSON.stringify(error, undefined, 2))
+        response = Result.Failed
+      }
+
+      return response
+    }
+
+    async latestReadReceipts(parameters: LatestReadReceiptsParameters) : Promise<LatestReadReceiptsResponse>
+    {
+      let response: LatestReadReceiptsResponse
+      const graphQLClient = new GraphQLClient(this.endpoint, {
+        headers: {
+          Authorization: parameters.idToken!,
+        }
+      })
+
+      const ReadReceiptCommand = gql`
+      query LatestReadReceipts($conversationId: ID!) {
+        latestReadReceipts(conversationId: $conversationId){
+          memberId,
+          latestReadMessageId
+        }
+      }
+    `;      
+      
+      const variables = {
+        conversationId: parameters.conversationId
+      }
+
+      try
+      {
+        const data = await graphQLClient.request(ReadReceiptCommand, variables)
+        logger.verbose("latest read receipts responded with - " + JSON.stringify(data))
+        response = {result: Result.Succeeded, readReceipts: data}
+
+      }
+      catch(error)
+      {
+        logger.verbose("Latest Read Receipts error - " + JSON.stringify(error, undefined, 2))
+        response = {result: Result.Failed, readReceipts: undefined}
+      }
+
+      return response
+    }
+
     async latestMessages(parameters: LatestMessagesParameters)
     {
       let response: LatestMessagesResponse
@@ -197,7 +288,7 @@ export class ConversationClient
           dateTime
         }
       }
-    `;      
+    `   
       
       const variables = {
         memberId: parameters.memberId,

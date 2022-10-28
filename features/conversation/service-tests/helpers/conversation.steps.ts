@@ -2,7 +2,7 @@
 import { StepDefinitions } from "jest-cucumber"
 import { TestEnvVarSetup } from "./test-env-var-setup"
 import { MemberCredentialsAccessor} from "./member-credentials-accessor"
-import { ConversationClient, Response, Result, LatestMessagesResponse} from "./conversation-client"
+import { ConversationClient, Response, Result, LatestMessagesResponse, LatestReadReceiptsResponse} from "./conversation-client"
 import logger from "./service-test-logger"
 import { FakeMember } from "./fake-member"
 import { ConversationsAccessor } from "./conversations-accessor"
@@ -41,6 +41,8 @@ let messages: MessagesAccessor
 let lastMessage: string
 let incomingMemberMessageSubscriptionId: string
 let messageId: string|undefined
+let readReceiptResponse : Result
+let latestReadReceipts: LatestReadReceiptsResponse
 
 beforeAll(async()=> {
 
@@ -231,6 +233,31 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
     lastMessage = message
   })
 
+  given(/the message "(.+)" sent from (\w+)'s (\w+) is read on (\w+)'s (\w+)/,
+  async (message: string, sender: string, senderDevice: string, receiver: string, receiverDevice) => {
+
+    const idToken = await memberCredentials.requestIdToken(firstParticipant.email, "passw0rd")
+
+    response = await client.sendMessage(
+      {senderMemberId: firstParticipant.memberId,
+       senderDeviceId: firstParticipant.idForDevice(senderDevice)!,
+       recipientMemberId: secondParticipant.memberId,
+       recipientDeviceId: secondParticipant.idForDevice(receiverDevice)!,
+       conversationId: conversationId,
+       message,
+       idToken: idToken})
+    messageId = await conversations.waitForMessage(conversationId)        
+    await memberMessagesProjection.waitForMessagesToBeStored(secondParticipant.memberId, [messageId!])
+
+    readReceiptResponse = await client.readReceipt(
+      {memberId: secondParticipant.memberId,
+      conversationId: conversationId,
+      latestReadMessage: messageId!,
+      idToken: idToken})
+
+    const result = await conversations.waitForReadReceipt(conversationId, secondParticipant.memberId, response.message!)
+  })
+
   given(/an unactivated conversation between (\w+)'s (\w+) and (\w+)'s (\w+)/,
       async (firstParticipantName: string,
              firstParticipantDevice: string,
@@ -298,6 +325,8 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
        conversationId: conversationId,
        message,
        idToken: idToken})
+
+    messageId = await conversations.waitForMessage(conversationId)             
   })
 
   when(/(\w+)'s (\w+) checks for messages/,
@@ -312,6 +341,32 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
        deviceId: secondParticipant.idForDevice(senderDevice)!,
        lastReceivedMessageId: "5",
        idToken: idToken})
+  })
+
+  when(/the message is read on (\w+)'s (\w+)/,
+  async (receiver: string, receiverDevice: string) => {
+
+    await secondParticipant.authenticatedWithPassword("passw0rd")
+
+    const idToken = await memberCredentials.requestIdToken(secondParticipant.email, "passw0rd")
+
+    readReceiptResponse = await client.readReceipt(
+      {memberId: secondParticipant.memberId,
+      conversationId: conversationId,
+      latestReadMessage: messageId!,
+      idToken: idToken})
+  })
+
+  when(/the latest read receipts are requested on (\w+)'s (\w+)/,
+  async (receiver: string, receiverDevice: string) => {
+
+    await secondParticipant.authenticatedWithPassword("passw0rd")
+
+    const idToken = await memberCredentials.requestIdToken(secondParticipant.email, "passw0rd")
+
+    latestReadReceipts = await client.latestReadReceipts(
+      {conversationId: conversationId,
+      idToken: idToken})
   })
 
   when(/(\w+)'s (\w+) sends another message "(.+)" to (\w+)'s (\w+)/,
@@ -378,6 +433,18 @@ export const conversationSteps: StepDefinitions = ({ given, and, when, then }) =
     expect(latestMessagesResponse.result).toBe(Result.Succeeded)
     expect(latestMessagesResponse.messages!.length).toBe(1)
     expect(latestMessagesResponse.messages![0].message).toBe(lastMessage)
+  })
+
+  then(/(\w+) is acknowledged as having read the message/, async () => {
+    expect(readReceiptResponse).toBe(Result.Succeeded)
+    const result = await conversations.waitForReadReceipt(conversationId, secondParticipant.memberId, messageId!)
+    expect(result).toBe(true)
+  })
+
+  then(/(\w+) has read the message/, async () => {
+    expect(latestReadReceipts.result).toBe(Result.Succeeded)
+    expect(latestReadReceipts.readReceipts).toBeDefined()
+    expect(latestReadReceipts.readReceipts!.latestReadReceipts[0]).toEqual({memberId: secondParticipant.memberId, latestReadMessageId: messageId})
   })
 
   then(/the conversation is activated/, async () => {

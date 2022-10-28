@@ -119,6 +119,28 @@ export class ConversationsAccessor {
     })
   }
 
+  async waitForReadReceipt(conversationId: string, memberId: string, latestReadMessageId: string, retries: number = 3, retryWaitInMillisecs = 500)
+  {
+    return await this.waitForConversation(conversationId, retries, retryWaitInMillisecs, (scanResult)=>{
+      let matched = false
+      if((scanResult.Count != null) && scanResult.Count == 1)
+      {
+        const conversation = scanResult.Items![0]
+
+        logger.verbose("Found latestReadReceipt - " + conversation.latestReadReceipts[memberId] + " for member " + memberId + " whilst looking for message " + latestReadMessageId)
+
+        if ((conversation.latestReadReceipts[memberId] != undefined) &&
+            (conversation.latestReadReceipts[memberId] == latestReadMessageId))
+        {
+          matched = true
+        }
+      }
+
+      return matched
+    })
+  }
+
+
   async waitForMessage(conversationId: string, retries: number = 3, retryWaitInMillisecs = 500): Promise<string|undefined>
   {
     let messageId: string|undefined
@@ -143,7 +165,7 @@ export class ConversationsAccessor {
 
   async waitForConversation(conversationId: string, retries: number = 3, retryWaitInMillisecs = 500, conditionFunction: ConditionFunction)
   {
-    let itemAdded: boolean = false
+    let conditionMet: boolean = false
     var params = {
       FilterExpression: "#id = :id",
       ExpressionAttributeValues: {
@@ -158,7 +180,10 @@ export class ConversationsAccessor {
       for (let retry = 0; retry < retries; retry++) {
         let result = await this.dynamoDB.send(new ScanCommand(params))
         logger.verbose("wait for conversation to be added/updated - " + JSON.stringify(result))
-        if(conditionFunction(result))        {
+        if(conditionFunction(result)) 
+        {
+          conditionMet = true
+
           break
         }
         await new Promise(r => setTimeout(r, retryWaitInMillisecs * Math.pow(2, retry)))
@@ -168,7 +193,7 @@ export class ConversationsAccessor {
       logger.error(err)
     }
  
-    return itemAdded
+    return conditionMet
   }
 
 }

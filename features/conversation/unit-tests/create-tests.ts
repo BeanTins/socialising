@@ -61,7 +61,8 @@ test("conversation create stored", async () => {
     name: "surrey coding kata",
     messages: [],
     participantIds: new Set(["5678", "9012", "1234"]),
-    state: "Created"
+    state: "Created",
+    latestReadReceipts: {}
   })
 
 })

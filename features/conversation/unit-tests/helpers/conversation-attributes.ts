@@ -6,5 +6,6 @@ export interface ConversationAttributes {
     adminIds?: Set<string>,
     messages?: string[]
     state: "Activated" | "Created"
+    latestReadReceipts?: Record<string, string>
   }
   

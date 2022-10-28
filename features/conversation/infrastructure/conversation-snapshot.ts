@@ -14,6 +14,8 @@ export interface ConversationSnapshotAttributes {
   state: State
 
   messages: string[]
+
+  latestReadReceipts: Record<string, string>
 }
 
 export class ConversationSnapshot implements ConversationSnapshotAttributes{
@@ -33,6 +35,8 @@ export class ConversationSnapshot implements ConversationSnapshotAttributes{
   messages: string[]
 
   newMessage: undefined
+
+  latestReadReceipts: Record<string, string>
 
   public static createFromRawData(snapshot: Record<string, any>)
   {
@@ -60,8 +64,38 @@ export class ConversationSnapshot implements ConversationSnapshotAttributes{
   public toConversation() : Conversation {
     var conversation: Conversation = Conversation.create(this.initiatingMemberId, this.participantIds, this.name, this.adminIds)
 
-    Object.assign(conversation, {id: this.id, state: this.state})
+    Object.assign(conversation, 
+      {id: this.id, 
+       state: this.state, 
+       latestReadReceipts: this.resolveLatestReadReceipts(), 
+       messages: this.resolveMessages()
+      })
 
     return conversation
   }
+
+  private resolveMessages()
+  {
+    let messages = this.messages
+
+    if (messages == undefined)
+    {
+      messages = []
+    }
+
+    return messages
+  }
+
+  private resolveLatestReadReceipts()
+  {
+    let latestReadReceipts = this.latestReadReceipts
+
+    if (latestReadReceipts == undefined)
+    {
+      latestReadReceipts = {}
+    }
+
+    return latestReadReceipts
+  }
+
 }

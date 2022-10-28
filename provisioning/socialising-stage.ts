@@ -6,6 +6,8 @@ import { ConversationsTable } from "../features/conversation/infrastructure/conv
 import { MessagesTable } from "../features/conversation/infrastructure/messages-table"
 import { conversationCreateGraphQLField, CreatedResponse } from "../features/conversation/create"
 import { conversationSendMessageGraphQLField, DeviceMessage } from "../features/conversation/send-message"
+import { conversationReadReceiptGraphQLField } from "../features/conversation/read-receipt"
+import { conversationLatestReadReceiptsGraphQLField, MemberLatestReadMessagePairing } from "../features/conversation/latest-read-receipts"
 import { conversationIncomingMemberMessageGraphQLField, IncomingMemberMessageResponse } from "../features/conversation/incoming-member-message"
 import { conversationIncomingMemberMessageReceivedGraphQLField } from "../features/conversation/incoming-member-message-received"
 import { conversationLatestMessagesGraphQLField, LatestMessagesResponse } from "../features/conversation/latest-messages"
@@ -99,64 +101,19 @@ export class SocialisingStage extends Stage implements Stage{
         userPoolId: props.userPoolId,
       })
 
-    this.memberDevicesProjectionHandler = this.createStack(MemberDevicesProjectionHandler,
-      {
-        memberDevicesProjectionTableName: this.memberDevicesProjection.name,
-        membershipEventBusArn: props.membershipEventBusArn
-      })
-    this.memberDevicesProjection.grantAccessTo(this.memberDevicesProjectionHandler.lambda.grantPrincipal)
+    this.buildMemberDevicesProjectionHandler(props.membershipEventBusArn)
 
-    this.memberMessagesProjectionHandler = this.createStack(MemberMessagesProjectionHandler,
-      {
-        messagesTableName: this.messagesTable.name,
-        memberMessagesProjectionTableName: this.memberMessagesProjection.name,
-        membershipEventBusArn: this.eventBus.Arn,
-        incomingMemberMessageMutationUrl: this.conversationGraphQL.api.graphqlUrl
-      })
-    this.memberMessagesProjection.grantAccessTo(this.memberMessagesProjectionHandler.lambda.grantPrincipal)
-    this.messagesTable.grantAccessTo(this.memberMessagesProjectionHandler.lambda.grantPrincipal)
-    this.conversationGraphQL.api.grantMutation(this.memberMessagesProjectionHandler.lambda.grantPrincipal)
+    this.buildMemberMessagesProjectionHandler()
 
-    this.conversationGraphQL.addType(LatestMessagesResponse)
-    const latestMessagesLambda = this.conversationGraphQL.addLambdaResolvedField({
-      resourceLabel: "ConversationLatestMessages",
-      functionEnvironment:
-      {
-        MemberMessagesProjectionTableName: this.memberMessagesProjection.name,
-        MessagesTableName: this.messagesTable.name,        
-        MemberDevicesProjectionTableName: this.memberDevicesProjection.name,        
-      },
-      functionSourceLocation: path.join(__dirname, "../features/conversation/latest-messages.ts"),
-      field: conversationLatestMessagesGraphQLField})
+    this.buildLatestMemberMessages()
 
-    this.conversationGraphQL.addType(CreatedResponse)
-    this.memberDevicesProjection.grantAccessTo(latestMessagesLambda.grantPrincipal)
-    this.memberMessagesProjection.grantAccessTo(latestMessagesLambda.grantPrincipal)
-    this.messagesTable.grantAccessTo(latestMessagesLambda.grantPrincipal)
-    
-    const createCommandLambda = this.conversationGraphQL.addLambdaResolvedField({
-      resourceLabel: "ConversationCreate",
-      functionEnvironment: {
-        ConversationsTableName: this.conversationsTable.name, 
-        MemberDevicesProjectionTableName: this.memberDevicesProjection.name
-      },
-      functionSourceLocation: path.join(__dirname, "../features/conversation/create.ts"),
-      field: conversationCreateGraphQLField})
-    this.conversationsTable.grantAccessTo(createCommandLambda.grantPrincipal)
+    this.buildCreateCommand()
 
-    this.conversationGraphQL.addType(DeviceMessage)    
-    const sendMessageCommandLambda = this.conversationGraphQL.addLambdaResolvedField({
-      resourceLabel: "ConversationSendMessage",
-      functionEnvironment: {
-        ConversationsTableName: this.conversationsTable.name, 
-        MessagesTableName: this.messagesTable.name,
-        MemberDevicesProjectionTableName: this.memberDevicesProjection.name
-      },
-      functionSourceLocation: path.join(__dirname, "../features/conversation/send-message.ts"),
-      field: conversationSendMessageGraphQLField})
-    this.memberDevicesProjection.grantAccessTo(sendMessageCommandLambda.grantPrincipal)
-    this.conversationsTable.grantAccessTo(sendMessageCommandLambda.grantPrincipal)
-    this.messagesTable.grantAccessTo(sendMessageCommandLambda.grantPrincipal)
+    this.buildSendMessageCommand()
+
+    this.buildReadReceiptCommand()
+
+    this.buildLatestReadReceiptsQuery()    
 
     this.validateConnectionsRequestPolicy = this.createStack(ValidateConnectionsRequestPolicy, {
       conversationsTable: this.conversationsTable.conversations,
@@ -165,27 +122,11 @@ export class SocialisingStage extends Stage implements Stage{
       requestQueueArn: props.validateConnectionsRequestQueueArn
      })
 
-     this.messageSentPublisher = this.createStack(ConversationMessageSentPublisher, {
-      conversationsTable: this.conversationsTable.conversations,
-      eventBusName: this.eventBus.Name,
-      eventBusArn: this.eventBus.Arn
-     })
-     this.eventBus.grantAccessTo(this.messageSentPublisher.lambda.grantPrincipal)
+    this.buildMessageSentPublisher()
 
-     this.activateCommand = this.createStack(ConversationActivateCommand, {
-      conversationsTable: this.conversationsTable.conversations,
-      eventBusName: this.eventBus.Name,
-      eventBusArn: this.eventBus.Arn,
-      responseQueueArn: props.validateConnectionsResponseQueueArn
-     })
-    this.conversationsTable.grantAccessTo(this.activateCommand.lambda.grantPrincipal)
+    this.buildActivateCommand(props.validateConnectionsResponseQueueArn)
 
-    this.activatedPublisher = this.createStack(ConversationActivatedPublisher, {
-      conversationsTable: this.conversationsTable.conversations,
-      eventBusName: this.eventBus.Name,
-      eventBusArn: this.eventBus.Arn
-     })
-     this.eventBus.grantAccessTo(this.activatedPublisher.lambda.grantPrincipal)
+    this.buildActivatedPublisher()
   
     this.conversationGraphQL.addType(IncomingMemberMessageResponse)
 
@@ -197,5 +138,130 @@ export class SocialisingStage extends Stage implements Stage{
     this.conversationGraphQL.addSubscription(conversationIncomingMemberMessageReceivedGraphQLField)
   }
 
+
+  private buildMessageSentPublisher() {
+    this.messageSentPublisher = this.createStack(ConversationMessageSentPublisher, {
+      conversationsTable: this.conversationsTable.conversations,
+      eventBusName: this.eventBus.Name,
+      eventBusArn: this.eventBus.Arn
+    })
+    this.eventBus.grantAccessTo(this.messageSentPublisher.lambda.grantPrincipal)
+  }
+
+  private buildReadReceiptCommand() {
+    const readReceiptCommandLambda = this.conversationGraphQL.addLambdaResolvedField({
+      resourceLabel: "ConversationReadReceipt",
+      functionEnvironment: {
+        ConversationsTableName: this.conversationsTable.name
+      },
+      functionSourceLocation: path.join(__dirname, "../features/conversation/read-receipt.ts"),
+      field: conversationReadReceiptGraphQLField
+    })
+    this.conversationsTable.grantAccessTo(readReceiptCommandLambda.grantPrincipal)
+  }
+
+  private buildLatestReadReceiptsQuery() {
+    this.conversationGraphQL.addType(MemberLatestReadMessagePairing)
+    const latestReadReceiptsQueryLambda = this.conversationGraphQL.addLambdaResolvedField({
+      resourceLabel: "ConversationLatestReadReceipts",
+      functionEnvironment: {
+        ConversationsTableName: this.conversationsTable.name
+      },
+      functionSourceLocation: path.join(__dirname, "../features/conversation/latest-read-receipts.ts"),
+      field: conversationLatestReadReceiptsGraphQLField
+    })
+    this.conversationsTable.grantAccessTo(latestReadReceiptsQueryLambda.grantPrincipal)
+  }
+
+  private buildActivatedPublisher() {
+    this.activatedPublisher = this.createStack(ConversationActivatedPublisher, {
+      conversationsTable: this.conversationsTable.conversations,
+      eventBusName: this.eventBus.Name,
+      eventBusArn: this.eventBus.Arn
+    })
+    this.eventBus.grantAccessTo(this.activatedPublisher.lambda.grantPrincipal)
+  }
+
+  private buildActivateCommand(validateConnectionsResponseQueueArn: string) {
+    this.activateCommand = this.createStack(ConversationActivateCommand, {
+      conversationsTable: this.conversationsTable.conversations,
+      eventBusName: this.eventBus.Name,
+      eventBusArn: this.eventBus.Arn,
+      responseQueueArn: validateConnectionsResponseQueueArn
+    })
+    this.conversationsTable.grantAccessTo(this.activateCommand.lambda.grantPrincipal)
+  }
+
+  private buildSendMessageCommand() {
+    this.conversationGraphQL.addType(DeviceMessage)
+    const sendMessageCommandLambda = this.conversationGraphQL.addLambdaResolvedField({
+      resourceLabel: "ConversationSendMessage",
+      functionEnvironment: {
+        ConversationsTableName: this.conversationsTable.name,
+        MessagesTableName: this.messagesTable.name,
+        MemberDevicesProjectionTableName: this.memberDevicesProjection.name
+      },
+      functionSourceLocation: path.join(__dirname, "../features/conversation/send-message.ts"),
+      field: conversationSendMessageGraphQLField
+    })
+    this.memberDevicesProjection.grantAccessTo(sendMessageCommandLambda.grantPrincipal)
+    this.conversationsTable.grantAccessTo(sendMessageCommandLambda.grantPrincipal)
+    this.messagesTable.grantAccessTo(sendMessageCommandLambda.grantPrincipal)
+    return sendMessageCommandLambda
+  }
+
+  private buildCreateCommand() {
+    this.conversationGraphQL.addType(CreatedResponse)
+    const createCommandLambda = this.conversationGraphQL.addLambdaResolvedField({
+      resourceLabel: "ConversationCreate",
+      functionEnvironment: {
+        ConversationsTableName: this.conversationsTable.name,
+        MemberDevicesProjectionTableName: this.memberDevicesProjection.name
+      },
+      functionSourceLocation: path.join(__dirname, "../features/conversation/create.ts"),
+      field: conversationCreateGraphQLField
+    })
+    this.conversationsTable.grantAccessTo(createCommandLambda.grantPrincipal)
+  }
+
+  private buildLatestMemberMessages() {
+    this.conversationGraphQL.addType(LatestMessagesResponse)
+    const latestMessagesLambda = this.conversationGraphQL.addLambdaResolvedField({
+      resourceLabel: "ConversationLatestMessages",
+      functionEnvironment: {
+        MemberMessagesProjectionTableName: this.memberMessagesProjection.name,
+        MessagesTableName: this.messagesTable.name,
+        MemberDevicesProjectionTableName: this.memberDevicesProjection.name,
+      },
+      functionSourceLocation: path.join(__dirname, "../features/conversation/latest-messages.ts"),
+      field: conversationLatestMessagesGraphQLField
+    })
+
+    this.memberDevicesProjection.grantAccessTo(latestMessagesLambda.grantPrincipal)
+    this.memberMessagesProjection.grantAccessTo(latestMessagesLambda.grantPrincipal)
+    this.messagesTable.grantAccessTo(latestMessagesLambda.grantPrincipal)
+  }
+
+  private buildMemberMessagesProjectionHandler() {
+    this.memberMessagesProjectionHandler = this.createStack(MemberMessagesProjectionHandler,
+      {
+        messagesTableName: this.messagesTable.name,
+        memberMessagesProjectionTableName: this.memberMessagesProjection.name,
+        membershipEventBusArn: this.eventBus.Arn,
+        incomingMemberMessageMutationUrl: this.conversationGraphQL.api.graphqlUrl
+      })
+    this.memberMessagesProjection.grantAccessTo(this.memberMessagesProjectionHandler.lambda.grantPrincipal)
+    this.messagesTable.grantAccessTo(this.memberMessagesProjectionHandler.lambda.grantPrincipal)
+    this.conversationGraphQL.api.grantMutation(this.memberMessagesProjectionHandler.lambda.grantPrincipal)
+  }
+
+  private buildMemberDevicesProjectionHandler(membershipEventBusArn: string) {
+    this.memberDevicesProjectionHandler = this.createStack(MemberDevicesProjectionHandler,
+      {
+        memberDevicesProjectionTableName: this.memberDevicesProjection.name,
+        membershipEventBusArn: membershipEventBusArn
+      })
+    this.memberDevicesProjection.grantAccessTo(this.memberDevicesProjectionHandler.lambda.grantPrincipal)
+  }
 }
 
