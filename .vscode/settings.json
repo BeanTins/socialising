@@ -1,0 +1,7 @@
+{
+    "jest.jestCommandLine": "npm run-script test:unit --",
+    "jest.testExplorer": {
+    
+        "enabled": true
+    }
+}

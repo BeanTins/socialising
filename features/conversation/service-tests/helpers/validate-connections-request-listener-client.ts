@@ -4,7 +4,7 @@ import  { SQSClient,
   GetQueueUrlCommand, 
   ReceiveMessageResult,
   DeleteMessageCommand } from "@aws-sdk/client-sqs"
-import logger from "./service-test-logger"
+import logger from "../../../../test-helpers/service-test-logger"
 
 interface ValidateConnectionsRequestListenerParameters{
   queueName: string

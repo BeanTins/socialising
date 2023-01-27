@@ -1,6 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
 import { DynamoDBDocumentClient, ScanCommand, DeleteCommand, PutCommand, ScanCommandOutput } from "@aws-sdk/lib-dynamodb"
-import logger from "./service-test-logger"
+import logger from "../../../../test-helpers/service-test-logger"
 import { ConversationSnapshot } from "../../infrastructure/conversation-snapshot"
 import {State } from "../../domain/conversation"
 

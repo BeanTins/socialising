@@ -1,4 +1,4 @@
-import logger from "./service-test-logger"
+import logger from "../../../../test-helpers/service-test-logger"
 import { GraphQLClient, gql } from 'graphql-request'
 import { v4 as uuidv4 } from "uuid"
 

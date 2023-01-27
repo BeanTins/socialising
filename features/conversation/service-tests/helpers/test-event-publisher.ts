@@ -1,5 +1,5 @@
 import  { EventBridgeClient, PutEventsCommand } from "@aws-sdk/client-eventbridge"
-import logger from "./service-test-logger"
+import logger from "../../../../test-helpers/service-test-logger"
 
 export class TestEventPublisher {
   private eventbridge: EventBridgeClient

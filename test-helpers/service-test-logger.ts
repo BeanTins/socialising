@@ -14,7 +14,7 @@ const consoleFormat = format.combine(
 const logger = createLogger({
   transports: [
     new transports.Console({ level: "info", format: consoleFormat}),
-    new transports.File({ filename: path.join(__dirname, "../../../../reports/service-tests/tests.log"), level: "verbose", format: fileFormat})
+    new transports.File({ filename: path.join(__dirname, "../reports/service-tests/tests.log"), level: "verbose", format: fileFormat})
   ]
 })
 

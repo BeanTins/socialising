@@ -1,6 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
 import { DynamoDBDocumentClient, ScanCommand, DeleteCommand, PutCommand, ScanCommandOutput } from "@aws-sdk/lib-dynamodb"
-import logger from "./service-test-logger"
+import logger from "../../../../test-helpers/service-test-logger"
 
 interface MessagesParameters{
   tableName: string

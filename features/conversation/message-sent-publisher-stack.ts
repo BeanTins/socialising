@@ -14,7 +14,7 @@ interface MessageSentPublisherProps extends StackProps {
   eventBusName: string
 }
 
-export class ConversationMessageSentPublisher extends Stack {
+export class MessageSentPublisher extends Stack {
 
   public readonly lambda: Function
 

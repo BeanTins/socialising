@@ -17,7 +17,7 @@ interface ActivateProps extends StackProps {
   responseQueueArn: string
 }
 
-export class ConversationActivateCommand extends EnvvarsStack {
+export class ActivateCommand extends EnvvarsStack {
 
   public readonly lambda: Function
 

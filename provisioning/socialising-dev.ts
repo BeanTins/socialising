@@ -37,6 +37,7 @@ async function main(): Promise<void>
     validateConnectionsRequestQueueArn: Fn.importValue("SocialisingDevValidateConnectionsRequestQueueArn"),
     validateConnectionsResponseQueueArn: Fn.importValue("SocialisingDevValidateConnectionsResponseQueueArn"),
     userPoolId: Fn.importValue("SocialisingDevUserPoolId"),
+    userPoolArn: Fn.importValue("SocialisingDevUserPoolArn"),
     env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
     stackNamePrepend: "SocialisingDev"
   })

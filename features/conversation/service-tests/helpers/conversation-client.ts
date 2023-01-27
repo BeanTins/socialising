@@ -66,7 +66,7 @@ export interface LatestMessagesResponse {
   errorMessage?: string
 }
 
-import logger from "./service-test-logger"
+import logger from "../../../../test-helpers/service-test-logger"
 import { GraphQLClient, gql } from 'graphql-request'
 import { AppsyncSubscriptions } from "./appsync-subscriptions"
 

@@ -5,9 +5,11 @@ import * as path from "path"
 export class TestEnvVarSetup{
   
   private serviceName: string
-  constructor(serviceName: string)
+  private featureName: string | undefined
+  constructor(serviceName: string, featureName: string | undefined)
   {
     this.serviceName = serviceName
+    this.featureName = featureName
   }
 
   resolveVariableWithAppendedStage(envVarBaseName: string) {
@@ -74,15 +76,22 @@ export class TestEnvVarSetup{
       deploymentName+= "Prod"
     }
 
-    return deploymentName
+    if (this.featureName != undefined)
+    {
+      deploymentName += this.featureName
+    }
+
+    return deploymentName 
   }
 
   resolveOutput(targetOutputName: string)
   {
     var output: string | undefined
+    let allDeployOutputs: string[] = []
 
-    const outputFileList = readdirSync(path.join(__dirname, "../../../..")).filter(fn => fn.endsWith("_outputs.json"))
+    const outputFileList = readdirSync(path.join(__dirname, "../")).filter(fn => fn.endsWith("_outputs.json"))
 
+    console.log(targetOutputName)
     if (outputFileList.length > 0)
     {
         for (const outputFile of outputFileList)
@@ -93,19 +102,24 @@ export class TestEnvVarSetup{
             {
                 for (const outputName in deployOutputs[stackName])
                 {
-                    if (targetOutputName == outputName)
-                    {
-                        output = deployOutputs[stackName][outputName]
-                        break
-                    }
+                  allDeployOutputs.push(outputName)
+                  if (targetOutputName == outputName)
+                  {
+                      output = deployOutputs[stackName][outputName]
+                      break
+                  }
                 }
             }
         }
     }
+    else
+    {
+        throw Error("No matches for " + targetOutputName + " using path " + outputFileList.toString())
+    }
 
     if (output == undefined)
     {
-        throw Error(targetOutputName + " undefined")
+        throw Error(targetOutputName + " undefined amongst choices " + JSON.stringify(allDeployOutputs))
     }
 
     return output

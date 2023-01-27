@@ -1,10 +1,10 @@
 
 import { StepDefinitions } from "jest-cucumber"
-import { TestEnvVarSetup } from "./test-env-var-setup"
-import { MemberCredentialsAccessor} from "./member-credentials-accessor"
+import { TestEnvVarSetup } from "../../../../test-helpers/test-env-var-setup"
+import { MemberCredentialsAccessor} from "../../../../test-helpers/member-credentials-accessor"
 import { ConversationClient, Response, Result, LatestMessagesResponse, LatestReadReceiptsResponse} from "./conversation-client"
-import logger from "./service-test-logger"
-import { FakeMember } from "./fake-member"
+import logger from "../../../../test-helpers/service-test-logger"
+import { FakeMember } from "../../../../test-helpers/fake-member"
 import { ConversationsAccessor } from "./conversations-accessor"
 import { EventListenerClient } from "./event-listener-client"
 import { ValidateConnectionsRequestListenerClient } from "./validate-connections-request-listener-client"
@@ -18,7 +18,8 @@ import { MessagesAccessor } from "./messages-accessor"
 const AWS_REGION = "us-east-1"
 
 let client: ConversationClient
-let testEnvVarSetup: TestEnvVarSetup
+let testEnvVarSetupFeature: TestEnvVarSetup
+let testEnvVarSetupService: TestEnvVarSetup
 let memberCredentials: MemberCredentialsAccessor
 let expectedFailureResponse: string
 let eventListener: EventListenerClient
@@ -48,48 +49,50 @@ beforeAll(async()=> {
 
   try
   {
-    testEnvVarSetup = new TestEnvVarSetup("Socialising")
+    testEnvVarSetupFeature = new TestEnvVarSetup("Socialising", "Conversation")
+    testEnvVarSetupService = new TestEnvVarSetup("Socialising", undefined)
     memberCredentials = new MemberCredentialsAccessor(AWS_REGION, {
-      userPoolId: testEnvVarSetup.resolveVariable("UserPoolId"),
-      userPoolMemberClientId: testEnvVarSetup.resolveVariable("UserPoolMemberClientId")
+      userPoolId: testEnvVarSetupService.resolveVariable("UserPoolId"),
+      userPoolMemberClientId: testEnvVarSetupService.resolveVariable("UserPoolMemberClientId")
     })
 
     conversations = new ConversationsAccessor(AWS_REGION, {
-      tableName: testEnvVarSetup.resolveVariable("ConversationsTableName")
+      tableName: testEnvVarSetupFeature.resolveVariable("ConversationsTableName")
     })
 
     messages = new MessagesAccessor(AWS_REGION, {
-      tableName: testEnvVarSetup.resolveVariable("MessagesTableName")
+      tableName: testEnvVarSetupFeature.resolveVariable("MessagesTableName")
     })
 
-    client = new ConversationClient(testEnvVarSetup.resolveVariable("ConversationStackapiURL"))
+    client = new ConversationClient(testEnvVarSetupFeature.resolveVariable("ConversationStackapiURL"))
 
     eventListener = new EventListenerClient(AWS_REGION, {
-      queueName: testEnvVarSetup.resolveVariable("EventListenerQueueName")
+      queueName: testEnvVarSetupService.resolveVariable("EventListenerQueueName")
     })
 
     validateConnectionsRequestListener = new ValidateConnectionsRequestListenerClient(AWS_REGION, {
-      queueName: testEnvVarSetup.resolveVariable("ValidateConnectionsRequestQueueName")
+      queueName: testEnvVarSetupService.resolveVariable("ValidateConnectionsRequestQueueName")
     })
 
     validateConnectionsResponse = new ValidateConnectionsResponseFakeClient(AWS_REGION, {
-      queueName: testEnvVarSetup.resolveVariable("ValidateConnectionsResponseQueueName")
+      queueName: testEnvVarSetupService.resolveVariable("ValidateConnectionsResponseQueueName")
     })
 
     memberDevicesProjection = new MemberDevicesProjectionAccessor(AWS_REGION, {
-      tableName: testEnvVarSetup.resolveVariable("MemberDevicesProjectionName")
+      tableName: testEnvVarSetupFeature.resolveVariable("MemberDevicesProjectionName")
     })
 
     memberMessagesProjection = new MemberMessagesProjectionAccessor(AWS_REGION, {
-      tableName: testEnvVarSetup.resolveVariable("MemberMessagesProjectionName")
+      tableName: testEnvVarSetupFeature.resolveVariable("MemberMessagesProjectionName")
     })
 
-    membershipEventBusFakeArn = testEnvVarSetup.resolveVariable("MembershipEventBusFakeArn")
+    membershipEventBusFakeArn = testEnvVarSetupService.resolveVariable("MembershipEventBusFakeArn")
 
   }
   catch(error)
   {
     logger.error("beforeAll failed with - " + error.message)
+    throw error
   }
 })
 

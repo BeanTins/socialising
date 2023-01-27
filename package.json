@@ -15,24 +15,28 @@
     "test:service:incomingmessage": "export filter=\"@conversationincomingmessage and @business\";jest --projects jest.service.config.ts",
     "test:service:latestmessages": "export filter=\"@conversationlatestmessages and @business\";jest --projects jest.service.config.ts",
     "test:service:readreceipt": "export filter=\"@conversationreadreceipt and @business\";jest --projects jest.service.config.ts",
-    "test:service:latestreadreceipts": "export filter=\"@conversationlatestreadreceipts and @business\";jest --projects jest.service.config.ts",    
+    "test:service:latestreadreceipts": "export filter=\"@conversationlatestreadreceipts and @business\";jest --projects jest.service.config.ts",
+    "test:service:devicekeyupload": "export filter=\"@devicekeyupload\";jest --projects jest.service.config.ts",
+    "test:service:devicekeydownload": "export filter=\"@devicekeydownload\";jest --projects jest.service.config.ts",    
     "test:unit": "jest --projects jest.unit.config.ts",
-    "deploy": "npx cdk deploy SocialisingDev* SocialisingDev/* --app \"npx ts-node provisioning/socialising-dev.ts\" --outputs-file awsDeploy_outputs.json"
+    "deploy": "npx cdk deploy --hotswap SocialisingDev* SocialisingDev/* --app \"npx ts-node provisioning/socialising-dev.ts\" --outputs-file awsDeploy_outputs.json",
+    "synth": "npx cdk synth SocialisingDev* SocialisingDev/* --app \"npx ts-node provisioning/socialising-dev.ts\" --outputs-file awsDeploy_outputs.json"
   },
   "devDependencies": {
     "@apollo/client": "^3.6.9",
     "@aws-sdk/client-eventbridge": "^3.118.0",
     "@types/jest": "26.0.10",
-    "@types/node": "10.17.27",
+    "@types/node": "^10.17.27",
     "@types/prettier": "2.6.0",
     "apollo-cache-inmemory": "^1.6.6",
     "aws-cdk": "2.27.0",
     "aws-cdk-lib": "2.27.0",
+    "got": "^12.5.3",
     "jest": "28.1.0",
     "jest-cucumber": "^3.0.1",
     "ts-jest": "28.0.4",
     "ts-node": "9.0.0",
-    "typescript": "4.5.2"
+    "typescript": "^4.5.2"
   },
   "dependencies": {
     "@apollo/link-context": "^2.0.0-beta.3",
